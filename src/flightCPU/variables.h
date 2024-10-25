@@ -4,6 +4,7 @@
 /*************************************************************************************************************************************************************************/
 /*************************************************************************************************************************************************************************/
 
+/* TELEMETRY */
 // LoRa Pinouts
 #define RFM95_CS 8
 #define RFM95_RST 4
@@ -15,6 +16,16 @@
 // LoRa Radio Module instance
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
+// AirLift Pinouts
+#define SPIWIFI       SPI  // The SPI port
+#define SPIWIFI_SS    13   // Chip select pin
+#define ESP32_RESETN  12   // Reset pin
+#define SPIWIFI_ACK   11   // a.k.a BUSY or READY pin
+#define ESP32_GPIO0   -1
+
+unsigned int localPort = 2390;      // local port to listen on
+
+/* SENSORS */
 // Barometric Altimeter instance
 Adafruit_BME280 bme; // I2C
 
@@ -23,6 +34,9 @@ MPU6050 mpu;
 
 #define OUTPUT_READABLE_YAWPITCHROLL
 #define INTERRUPT_PIN 6
+
+
+/* IO */
 
 // Battery Voltage pinout (for collecting battery status)
 #define VBATPIN A7
@@ -48,15 +62,16 @@ unsigned int tones[] = {523, 587, 659, 739, 830, 880};
 /************************
  *** Servo Definitions ***
  ************************/
-int servo0Pin = 10;
-int servo1Pin = 11;
-int servo2Pin = 12;
-int servo3Pin = 13;
+int servo0Pin = 10; // Conflicts with AirLift :/
+int servo1Pin = 11; // Conflicts with AirLift :/
+int servo2Pin = 12; // Conflicts with AirLift :/
+int servo3Pin = 13; // Conflicts with AirLift :/
 Servo servo0;
 Servo servo1;
 Servo servo2;
 Servo servo3;
 
+/* COMMUNICATIONS */
 /************************************
  *  Data Payload (String) Variables *
  ************************************/
@@ -72,7 +87,6 @@ char mpuDetected[60] = "{""\"status\":""\"MPU 6050 Detected.\"""}";
 char startupCompleted[60] = "{""\"status\":""\"Startup process complete.\"""}";
 char flightCPU[50] = "{""\"status\":""\"Flight CPU ready\"""}";
 char vehicleLanded[50] = "{""\"status\":""\"Touchdown!\"""}";
-
 
 /***************************
  * MPU control/status vars *
@@ -135,4 +149,4 @@ String launchState = "OFF";
 
 bool descent = false;
 
-bool RCS = true;
+bool RCS = false;

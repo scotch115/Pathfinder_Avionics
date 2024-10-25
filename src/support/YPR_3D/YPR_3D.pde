@@ -1,0 +1,35 @@
+import processing.serial.*; 
+
+Serial port;  // The serial port
+float roll, pitch, yaw;
+
+void setup() {
+  size(500, 500, P3D);
+  // List all the available serial ports
+  printArray(Serial.list());
+  // Open the port you are using at the rate you want:
+  port = new Serial(this, Serial.list()[2], 115200);
+  port.clear();
+  strokeWeight(4);
+  noFill();
+}
+
+void draw() {
+  lights();
+  background(255);
+  String str = port.readStringUntil('\n');
+  translate(width/2, height/2);
+  if (str != null) {
+    String[] strs = str.split(",");
+    if(strs.length >= 3){
+      yaw = PApplet.parseFloat(strs[4]);
+      pitch = PApplet.parseFloat(strs[5]);
+      roll = PApplet.parseFloat(strs[6]);
+    }
+  }
+  println(roll, pitch, yaw);
+  rotateY(-roll);
+  rotateX(pitch);
+  rotateZ(yaw);
+  box(150);
+}
