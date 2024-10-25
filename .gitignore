@@ -2,3 +2,4 @@ Schematics/PCB Design Files/FlightComputer.b#*
 Schematics/PCB Design Files/FlightComputer.s#*
 .vscode
 flows.json
+src/flightCPU/network.h

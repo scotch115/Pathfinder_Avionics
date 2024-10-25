@@ -10,6 +10,15 @@
 #include <SimpleKalmanFilter.h>
 #include "variables.h"
 #include "flightConfiguration.h"
+#include "network.h"
+#include <WiFiNINA.h>
+#include <WiFiUdp.h>
+WiFiUDP Udp;
+IPAddress remoteIp(10, 0, 0, 6);
+
+/**
+ * BLEP - Big Launch Elevating the Payload
+*/
 
 /****************************************************************************************************************************************************************************/
 /****************************************************************************************************************************************************************************/
@@ -31,7 +40,7 @@ void setup() {
     pinMode(RFM95_RST, OUTPUT);
     digitalWrite(RFM95_RST, HIGH);
   }
-  
+
   Serial.begin(115200);
 
   // Wait for serial to be available if board is in 'DEBUG' mode
@@ -75,6 +84,11 @@ void loop() {
     if (TELEMETRY == "ACTIVE") {
       // Check to see if groundControl is available
       sync();
+    }
+    if (TELEMETRY == "LOCAL") {
+      Udp.beginPacket(remoteIp, localPort);
+      Udp.write("INFO - ACTIVE");
+      Udp.endPacket();
     }
     // Reduce power consumption of loop frequency by limiting data collection to 2Hz
     delay(500);
@@ -137,17 +151,6 @@ void flightControl() {
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
       mpu.dmpGetAccel(&aa, fifoBuffer);
       mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-
-      /**
-       * (WIP) *
-       * Rocket camera feed will be handled by raspberry pi zero,
-       * using a configuration similar to what is outlined here:
-       * https://automaticaddison.com/2-way-communication-between-raspberry-pi-and-arduino/
-       * 
-       * The only expected obstacle at this time is going to be streaming the video to the ground computer,
-       * because I don't think sending video signals over radio is going to be a good idea (or work at all).
-       */
-
       
       /*************************************************
        * (WIP) *
@@ -233,10 +236,79 @@ void preCheck() {
     Serial.print("Frequency set to: "); Serial.println(RF95_FREQ);
 
     rf95.setTxPower(23, false);
+  } else if (TELEMETRY == "INACTIVE") {
+    Serial.println();
+    Serial.println("Telemetry set to INACTIVE. LoRa Module not in use.");
   }
 
-  Serial.println("First let's see if the BME280 Barometer is connected. Standby...");
- 
+  if (TELEMETRY == "LOCAL") {
+    Serial.println();
+    Serial.print("Telemtry set to 'LOCAL'. Disabling LoRa Module.");
+    SPI.begin();
+    pinMode(RFM95_CS, OUTPUT);
+    digitalWrite(RFM95_CS, HIGH);
+    delay(100);
+    Serial.print(".");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.println(".");
+
+    /*****************************************************************************************/
+    /* WIP - Dynamically change communication method as signal strength increases/decreases? */
+    /*****************************************************************************************/
+
+    Serial.print("LoRa Module disabled! Testing if WIFI Module is connected and operational.");
+    WiFi.setPins(SPIWIFI_SS, SPIWIFI_ACK, ESP32_RESETN, ESP32_GPIO0, &SPIWIFI);
+    delay(1000);
+    Serial.print(".");
+    delay(1000);
+    Serial.println(".");
+    while (WiFi.status() == WL_NO_MODULE) {
+      Serial.println();
+      Serial.println("Could not communicate with WiFi module, check system!");
+      while (true);
+      launchState = "ERROR";
+    }
+    Serial.println("WiFi Module detected!");
+    Serial.println("Attempting to connect to network...");
+    unsigned wStatus;
+
+    do {
+      wStatus = WiFi.begin(WIFI_SSID, PW);
+      delay(100);
+    } while (wStatus != WL_CONNECTED);
+    // print the SSID of the network you're attached to:
+    Serial.print(F("SSID: "));
+    Serial.println(WiFi.SSID());
+  
+    // print your board's IP address:
+    IPAddress ip = WiFi.localIP();
+    Serial.print(F("IP Address: "));
+    Serial.println(ip);
+  
+    // print the received signal strength:
+    long rssi = WiFi.RSSI();
+    Serial.print(F("signal strength (RSSI):"));
+    Serial.print(rssi);
+    Serial.println(F(" dBm"));
+    Udp.begin(localPort);
+
+    Udp.beginPacket(remoteIp, localPort);
+    if (wStatus) {
+      Udp.write("INFO - WiFi Module Detected!");
+    }
+    Udp.endPacket();
+  }
+
+  Serial.print("Now, let's see if the BME280 Barometer is connected. Standby");
+  delay(500);
+  Serial.print(".");
+  delay(500);
+  Serial.print(".");
+  delay(500);
+  Serial.print(".");
+  Serial.println();
 
   // Initialize and test BME 280
   status = bme.begin();
@@ -273,12 +345,24 @@ void preCheck() {
         delay(10);
         rf95.waitPacketSent();
       }
+      if (TELEMETRY == "LOCAL") {
+        Udp.beginPacket(remoteIp, localPort);
+        Udp.write("INFO - BME280: SUCCESS");
+        Udp.endPacket();
+      }
     }
   }
 
-  Serial.println("Now we'll look for the MPU6050 IMU. Standby...");
+  Serial.println("Now we'll look for the MPU6050 IMU. Standby");
   
-  delay(2000);
+  delay(500);
+  Serial.print(".");
+  delay(500);
+  Serial.print(".");
+  delay(500);
+  Serial.print(".");
+  delay(500);
+  Serial.print(".");
   
   // Initialize and test IMU (MPU 6050)
   mpu.initialize();
@@ -301,6 +385,12 @@ void preCheck() {
     rf95.send((uint8_t *)mMessage, 200);
     delay(10);
     rf95.waitPacketSent();
+  }
+  
+  if (TELEMETRY == "LOCAL") {
+    Udp.beginPacket(remoteIp, localPort);
+    Udp.write("INFO - MPU6050: SUCCESS");
+    Udp.endPacket();
   }
 
   devStatus = mpu.dmpInitialize();
@@ -422,6 +512,13 @@ void preCheck() {
       delay(10);
       rf95.waitPacketSent();
     }
+
+    if (TELEMETRY == "LOCAL") {
+      Udp.beginPacket(remoteIp, localPort);
+      Udp.write("INFO - FLIGHT CPU ARMED");
+      Udp.endPacket();
+    }
+
   }
 
   blep(BUZZER_PIN, 1760, 500);
@@ -602,7 +699,7 @@ void transmitData() {
    **********************************/
   String Payload = "";
   if (debugState == "ON") {
-    Payload += "{ ";
+    Payload += "{";
     Payload += "\"Temperature\": ";
     Payload += bme.readTemperature();
     Payload += ", ""\"Pressure\": ";
@@ -629,10 +726,12 @@ void transmitData() {
     Payload += ", ""\"LaunchState\": ";
     Payload += launchState;
     Payload += ", ""\"TELEMETRY\": ";
+    Payload += """\"";
     Payload += TELEMETRY;
-    Payload += " }";
+    Payload += """\"";
+    Payload += "}";
   } else {
-    Payload += "/* BLEPFLIGHTDATA,";
+    Payload += bme.readTemperature();
     Payload += ",";
     Payload += (bme.readPressure() / 100.0F);
     Payload += ",";
@@ -654,7 +753,6 @@ void transmitData() {
     //  ! (WIP - Battery Status)
     // Payload += ",";
     // Payload += measuredvbat;
-    Payload += "*/";
   }
       
   char packet[250];
@@ -677,6 +775,14 @@ void transmitData() {
     rf95.send((uint8_t *)packet, 200);
     delay(10);
     rf95.waitPacketSent();
+  }
+
+  if (TELEMETRY == "LOCAL") {
+    Udp.beginPacket(remoteIp, localPort);
+    if (packet) {
+      Udp.write(packet);
+    }
+    Udp.endPacket();
   }
 }
 
