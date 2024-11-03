@@ -1,5 +1,6 @@
-#define debugState "OFF"
+#define debugState "ON"
 #define mute false
+#define verboseLogs false
 
 // Current Atmospheric Pressure (UPDATE BEFORE FLIGHT)
 #define SEALEVELPRESSURE_HPA (1021)
@@ -28,7 +29,7 @@
 #define YGYRO_OFFSET 85
 #define ZGYRO_OFFSET 7
 
-#define TELEMETRY "LOCAL"
+#define TELEMETRY "INACTIVE"
 #define DEFLECTION_TEST "INACTIVE"
 
 #define PYRO1 false

@@ -15,6 +15,8 @@
 #include <WiFiUdp.h>
 WiFiUDP Udp;
 IPAddress remoteIp(10, 0, 0, 6);
+byte sequenceNumber = 0; // Static sequence number for PDTP
+int messageType;
 
 /**
  * BLEP - Big Launch Elevating the Payload
@@ -61,24 +63,18 @@ void setup() {
 
 void loop() {
 /**
- * @note - The flight CPU should have the following states, some 
- * of which are receivable via 900mHz radio from the launch pad controller
+ * @note - The flight CPU should have one the following states
  * 
  * @param - STARTUP
- * @param - STANDBY
  * @param - IDLE
  * @param - ARMED
- * @param - START CAMERA
- * @param - STOP CAMERA
  * @param - LIFTOFF
  * @param - CHUTE
  * @param - ERROR
- * @param - REBOOT
  * @param - TOUCHDOWN
  * @param - DEBUG
  */
-  if (launchState == "ARMED"
-  || launchState == "STANDBY") {
+  if (launchState == "ARMED") {
     missionBlep(interval, 1200);
     flightControl();
     if (TELEMETRY == "ACTIVE") {
@@ -111,20 +107,18 @@ void loop() {
     // Blep twice as in flight to indicate a change in state
     missionBlep((interval / 2), 1200);
     flightControl();
-  } else if (launchState == "REBOOT") {
-    preCheck();
   } else if (launchState =="STARTUP") {
     return;
   } else if (launchState == "ERROR") {
     /**
-     * Crash the program and force engineer(s) to follow standard operating procedures
-     * and power down rocket for safety
+     * Crash the program and force engineering to follow standard operating procedures
+     * and power down rocket safely
      * */
-    Serial.println("ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR");
-    Serial.println("!!!!! POWER DOWN THE ROCKET AND BE SURE TO DISENGAGE THE MOTOR !!!!!");
-    Serial.println("!!!!! EVALUATE FLIGHT COMPUTER AND CIRCUITRY BEFORE CONTINUING !!!!!");
-    Serial.println("!!!!! ENSURE CONTINUITY ON ALL COMPONENTS BEFORE ATTEMPTING FLIGHT !!!!!");
-    Serial.println("ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR");
+    Serial.println("ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR");
+    Serial.println("!!!!!!!   POWER DOWN THE ROCKET AND BE SURE TO DISENGAGE THE MOTOR    !!!!!!!");
+    Serial.println("!!!!!!!   EVALUATE FLIGHT COMPUTER AND CIRCUITRY BEFORE CONTINUING    !!!!!!!");
+    Serial.println("!!!!!!!  ENSURE CONTINUITY ON ALL COMPONENTS BEFORE ATTEMPTING FLIGHT !!!!!!!");
+    Serial.println("ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR");
     blep(BUZZER_PIN, 311, 1000);
 
     delay(10000);
@@ -137,6 +131,12 @@ void loop() {
     /* Do not limit data stream for efficient debugging */
     missionBlep(interval, 1200);
     flightControl();
+  }
+
+  if (debugState == "ON") {
+    // Implement a one second delay when debugState is turned on in order to
+    // slow down outputs for imrpoved debug and testing monitoring
+    delay(1000);
   }
 }
 
@@ -185,33 +185,30 @@ void flightControl() {
 } 
 
 /***********************************************************************************************/
-/********************************* Pre-Flight Startup Sequence *********************************/
+/*********************************** Power-on Built In Test   **********************************/
 /***********************************************************************************************/
 void preCheck() {
   Serial.println();Serial.println();
   Serial.println("Beginning Pre-Flight Software check.");
-  Serial.println();Serial.println();
+  Serial.println();
   delay(2000);
 
   launchState = "STARTUP";
-  Serial.println();
   Serial.print("Flight Computer Status: ");Serial.println(launchState);
 
   pinMode(LEDPIN, OUTPUT);
 
   // Play bootup sequence sound
-  for (unsigned int i = 0; i < numTones; i++) {
-    tone(BUZZER_PIN, tones[i]);
-    delay(50);
-  }
-  noTone(BUZZER_PIN);
+  if (!mute) {
+    for (unsigned int i = 0; i < numTones; i++) {
+      tone(BUZZER_PIN, tones[i]);
+      delay(50);
+    }
+    noTone(BUZZER_PIN);
+  };
   delay(2000);  // time to get serial running
   unsigned status;
 
-  /**********************************
-   *     ? Boot up LoRa module ?
-   * ! REMOVE WHEN TESTING OFFLINE  !
-   **********************************/
   if (TELEMETRY == "ACTIVE") {
     Serial.println();
     Serial.println("LoRa Radio module found!");
@@ -238,7 +235,8 @@ void preCheck() {
     rf95.setTxPower(23, false);
   } else if (TELEMETRY == "INACTIVE") {
     Serial.println();
-    Serial.println("Telemetry set to INACTIVE. LoRa Module not in use.");
+    Serial.println("Telemetry set to INACTIVE. LoRa and WiFi modules not in use.");
+    Serial.println();
   }
 
   if (TELEMETRY == "LOCAL") {
@@ -254,10 +252,9 @@ void preCheck() {
     delay(500);
     Serial.println(".");
 
-    /*****************************************************************************************/
-    /* WIP - Dynamically change communication method as signal strength increases/decreases? */
-    /*****************************************************************************************/
-
+    /*******************************************************************************************/
+    /* ! WIP - Dynamically change communication method as signal strength increases/decreases? */
+    /*******************************************************************************************/
     Serial.print("LoRa Module disabled! Testing if WIFI Module is connected and operational.");
     WiFi.setPins(SPIWIFI_SS, SPIWIFI_ACK, ESP32_RESETN, ESP32_GPIO0, &SPIWIFI);
     delay(1000);
@@ -334,203 +331,159 @@ void preCheck() {
       Serial.print("Pressure = ");Serial.print((bme.readPressure() / 100.0F));Serial.println(" Pa");
       Serial.print("Approx Altitude = ");Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));Serial.println(" m");
       Serial.print("Humidity = ");Serial.print(bme.readHumidity());Serial.println(" %");
+      Serial.println();
+
+      sendPacket(bMessage);
+    }
+
+    Serial.print("Now we'll look for the MPU6050 IMU. Standby");
+    
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.println(".");
+    
+    // Initialize and test IMU (MPU 6050)
+    mpu.initialize();
+    pinMode(INTERRUPT_PIN, INPUT);
+    String mpuMsg = "Found it! MPU6050 Connection Successful.";
+    char mMessage[200];
+    int m = 0;
+    while((m<200)) {
+      mMessage[m]=mpuMsg[m];  
+      m++;
+    }
+
+    Serial.print(mMessage);
+
+    sendPacket(mMessage);
+
+    devStatus = mpu.dmpInitialize();
+
+    /*******************************
+     * ! May require recalibration *
+     *******************************/
+      mpu.setXAccelOffset(XACCELOFFSET);
+      mpu.setYAccelOffset(YACCELOFFSET);
+      mpu.setZAccelOffset(ZACCELOFFSET);
+      mpu.setXGyroOffset(XGYRO_OFFSET);
+      mpu.setYGyroOffset(YGYRO_OFFSET);
+      mpu.setZGyroOffset(ZGYRO_OFFSET);
+
+    if (devStatus == 0) {
+    // Calibration Time: generate offsets and calibrate our MPU6050
+      mpu.CalibrateAccel(6);
+      mpu.CalibrateGyro(6);
+      Serial.println();
+      mpu.PrintActiveOffsets();
+      // turn on the DMP, now that it's ready
+      Serial.println(F("Enabling Digital Motion Processor (DMP). Standby..."));
+      mpu.setDMPEnabled(true);
+
+      // enable Arduino interrupt detection
+      Serial.print(F("Enabling interrupt detection (Arduino external interrupt "));
+      Serial.print(digitalPinToInterrupt(INTERRUPT_PIN));
+      Serial.println(F(")..."));
+      attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
+      mpuIntStatus = mpu.getIntStatus();
+
+      // set our DMP Ready flag so the flightControl() function knows it's okay to use it
+      Serial.println(F("DMP Calibration complete!"));
+      dmpReady = true;
+
+      // get expected DMP packet size for later comparison
+      packetSize = mpu.dmpGetFIFOPacketSize();
+    } else {
+      // ERROR!
+      // 1 = initial memory load failed
+      // 2 = DMP configuration updates failed
+      // (if it's going to break, usually the code will be 1)
+      Serial.print(F("DMP Initialization failed (code "));
+      Serial.print(devStatus);
+      Serial.println(F(")"));
+      launchState = "ERROR";
+    }
+ 
+    delay(2000);
+
+    blep(BUZZER_PIN, 523, 50);
+    
+    if (launchState != "ERROR") {
+      Serial.println();Serial.println();
+      Serial.println("Here's a little bit of data!");
+      for (int i = 0; i < 20; i++) {
+        if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+          mpu.dmpGetQuaternion(&q, fifoBuffer);
+          mpu.dmpGetGravity(&gravity, &q);
+          mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+          mpu.dmpGetAccel(&aa, fifoBuffer);
+          mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+        }
+        delay(10);
+        Serial.print("a/g:\t");
+        Serial.print(aaReal.x); Serial.print("\t");
+        Serial.print(aaReal.y); Serial.print("\t");
+        Serial.print(aaReal.z); Serial.print("\t");
+        Serial.print(ypr[0]); Serial.print("\t");
+        Serial.print(ypr[1]); Serial.print("\t");
+        Serial.println(ypr[2]);
+      }
+      Serial.println();Serial.println();
+    }
+
+    delay(2000);
+    
+    if (DEFLECTION_TEST == "ACTIVE") {
+      Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
+      Serial.println();Serial.println();
+      deflectionTest();
+    }
+
+
+    blep(BUZZER_PIN, 523, 50);
+
+    if (launchState != "ERROR") {
+
+      String readyMsg = "Flight Computer is Armed and Ready!";
+      char rMessage[200];
+      int r = 0;
+      while((r<200)) {
+        rMessage[r]=readyMsg[r];  
+        r++;
+      }
+
+      if (STARTLAUNCHSTATE != "DEBUG") {
+        launchState = "ARMED";
+      } else {
+        launchState = STARTLAUNCHSTATE;
+      }
+
+      Serial.println();
+      Serial.print("Flight Computer Status: ");Serial.println(launchState);
+      
+      delay(1000);
+
+      Serial.println();Serial.println();
+      Serial.println(rMessage);
       Serial.println();Serial.println();
 
-      /**********************************
-       * ? Send status update over LoRa ?
-       * ! REMOVE WHEN TESTING OFFLINE  !
-       **********************************/
-      if (TELEMETRY == "ACTIVE") {
-        rf95.send((uint8_t *)bMessage, 200);
-        delay(10);
-        rf95.waitPacketSent();
-      }
-      if (TELEMETRY == "LOCAL") {
-        Udp.beginPacket(remoteIp, localPort);
-        Udp.write("INFO - BME280: SUCCESS");
-        Udp.endPacket();
-      }
-    }
-  }
-
-  Serial.println("Now we'll look for the MPU6050 IMU. Standby");
-  
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.print(".");
-  
-  // Initialize and test IMU (MPU 6050)
-  mpu.initialize();
-  pinMode(INTERRUPT_PIN, INPUT);
-  String mpuMsg = "Found it! MPU6050 Connection Successful.";
-  char mMessage[200];
-  int m = 0;
-  while((m<200)) {
-    mMessage[m]=mpuMsg[m];  
-    m++;
-  }
-
-  Serial.println(mMessage);
-
-  /**********************************
-   * ? Send status update over LoRa ?
-   * ! REMOVE WHEN TESTING OFFLINE  !
-   **********************************/
-  if (TELEMETRY == "ACTIVE") {
-    rf95.send((uint8_t *)mMessage, 200);
-    delay(10);
-    rf95.waitPacketSent();
-  }
-  
-  if (TELEMETRY == "LOCAL") {
-    Udp.beginPacket(remoteIp, localPort);
-    Udp.write("INFO - MPU6050: SUCCESS");
-    Udp.endPacket();
-  }
-
-  devStatus = mpu.dmpInitialize();
-
-
-  /*******************************
-   * ! May require recalibration *
-   *******************************/
-    mpu.setXAccelOffset(XACCELOFFSET);
-    mpu.setYAccelOffset(YACCELOFFSET);
-    mpu.setZAccelOffset(ZACCELOFFSET);
-    mpu.setXGyroOffset(XGYRO_OFFSET);
-    mpu.setYGyroOffset(YGYRO_OFFSET);
-    mpu.setZGyroOffset(ZGYRO_OFFSET);
-
-  if (devStatus == 0) {
-  // Calibration Time: generate offsets and calibrate our MPU6050
-    mpu.CalibrateAccel(6);
-    mpu.CalibrateGyro(6);
-    Serial.println();
-    mpu.PrintActiveOffsets();
-    // turn on the DMP, now that it's ready
-    Serial.println(F("Enabling Digital Motion Processor (DMP). Standby..."));
-    mpu.setDMPEnabled(true);
-
-    // enable Arduino interrupt detection
-    Serial.print(F("Enabling interrupt detection (Arduino external interrupt "));
-    Serial.print(digitalPinToInterrupt(INTERRUPT_PIN));
-    Serial.println(F(")..."));
-    attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
-    mpuIntStatus = mpu.getIntStatus();
-
-    // set our DMP Ready flag so the flightControl() function knows it's okay to use it
-    Serial.println(F("DMP Calibration complete!"));
-    dmpReady = true;
-
-    // get expected DMP packet size for later comparison
-    packetSize = mpu.dmpGetFIFOPacketSize();
-  } else {
-    // ERROR!
-    // 1 = initial memory load failed
-    // 2 = DMP configuration updates failed
-    // (if it's going to break, usually the code will be 1)
-    Serial.print(F("DMP Initialization failed (code "));
-    Serial.print(devStatus);
-    Serial.println(F(")"));
-    launchState = "ERROR";
-  }
-
-  delay(2000);
-
-  blep(BUZZER_PIN, 523, 50);
-  
-  if (launchState != "ERROR") {
-    Serial.println();Serial.println();
-    Serial.println("Here's a little bit of data!");
-    for (int i = 0; i < 20; i++) {
-      if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        mpu.dmpGetAccel(&aa, fifoBuffer);
-        mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-      }
-      delay(10);
-      Serial.print("a/g:\t");
-      Serial.print(aaReal.x); Serial.print("\t");
-      Serial.print(aaReal.y); Serial.print("\t");
-      Serial.print(aaReal.z); Serial.print("\t");
-      Serial.print(ypr[0]); Serial.print("\t");
-      Serial.print(ypr[1]); Serial.print("\t");
-      Serial.println(ypr[2]);
-    }
-    Serial.println();Serial.println();
-  }
-
-  delay(2000);
-  
-  if (DEFLECTION_TEST == "ACTIVE") {
-    Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
-    Serial.println();Serial.println();
-    deflectionTest();
-  }
-
-
-  blep(BUZZER_PIN, 523, 50);
-
-  if (launchState != "ERROR") {
-
-    String readyMsg = "Flight Computer is Armed and Ready!";
-    char rMessage[200];
-    int r = 0;
-    while((r<200)) {
-      rMessage[r]=readyMsg[r];  
-      r++;
+      sendPacket(rMessage);
     }
 
-    if (STARTLAUNCHSTATE != "DEBUG") {
-      launchState = "ARMED";
-    } else {
-      launchState = STARTLAUNCHSTATE;
-    }
-
-    Serial.println();
-    Serial.print("Flight Computer Status: ");Serial.println(launchState);
+    blep(BUZZER_PIN, 1760, 500);
     
     delay(1000);
-
-    Serial.println();Serial.println();
-    Serial.println(rMessage);
-    Serial.println();Serial.println();
-
-    /**********************************
-     * ? Send status update over LoRa ?
-     * ! REMOVE WHEN TESTING OFFLINE  !
-     **********************************/
-    if (TELEMETRY == "ACTIVE") {
-      rf95.send((uint8_t *)rMessage, 200);
-      delay(10);
-      rf95.waitPacketSent();
+  
+    // Prepare Pyro Channel 1 (PYRO_1) for chute charge ignition
+    if (PYRO1) {
+      pinMode(PYRO_1, OUTPUT);
+      digitalWrite(PYRO_1, LOW);
     }
-
-    if (TELEMETRY == "LOCAL") {
-      Udp.beginPacket(remoteIp, localPort);
-      Udp.write("INFO - FLIGHT CPU ARMED");
-      Udp.endPacket();
-    }
-
   }
-
-  blep(BUZZER_PIN, 1760, 500);
-  
-  delay(1000);
-  
-  // Prepare Pyro Channel 1 (PYRO_1) for chute charge ignition
-   if (PYRO1) {
-    pinMode(PYRO_1, OUTPUT);
-    digitalWrite(PYRO_1, LOW);
-   }
-
   // readyForLaunch();
 }
 
@@ -539,8 +492,6 @@ void preCheck() {
 /********************************************************************* Sensor Data Assimilation *********************************************************************/
 /********************************************************************************************************************************************************************/
 /********************************************************************************************************************************************************************/
-
-
 // XYZ Position Calculations
 float calculateXDisplacement(float accelX) {
   // Filter noise from accelerometer
@@ -556,7 +507,6 @@ float calculateXDisplacement(float accelX) {
 //  xPos = 0.5 * dxAccel * sq(time);
 
   xPos = filteredX;
-  
 
   return xPos;
 }
@@ -603,102 +553,15 @@ void getVehicleAltitude() {
   }
 }
 
-/*********************************************************************************************************************************************************************/
-/*********************************************************************************************************************************************************************/
-/************************************************************************ Auxillary Functions ************************************************************************/
-/*********************************************************************************************************************************************************************/
-/*********************************************************************************************************************************************************************/
-
-void blep(uint8_t buzzerPin, int pitch, int length) {
-  if (!mute) {
-    tone(buzzerPin, pitch);
-    digitalWrite(LEDPIN, HIGH);
-    delay(length);
-    noTone(buzzerPin);
-    digitalWrite(LEDPIN, LOW);
-  }
-}
-
 /***********************************************************************************************/
-/*********************************** REACTION CONTROL SYSTEM ***********************************/
+/*********************************** TELEMETRY/TRANSMISSION  ***********************************/
 /***********************************************************************************************/
-void rcs(float *ypr) {
-  // Convert Yaw/Pitch/Roll to readable values   
-  ypr[0] = ypr[0] * 180 / M_PI;
-  ypr[1] = ypr[1] * 180 / M_PI;
-  ypr[2] = ypr[2] * 180 / M_PI;
-
-  // Add Yaw/Pitch/Roll values to Kalman Filter(s)
-  ypr[0] = yawKalmanFilter.updateEstimate(ypr[0]);
-  ypr[1] = pitchKalmanFilter.updateEstimate(ypr[1]);
-  ypr[2] = rollKalmanFilter.updateEstimate(ypr[2]);
-
-  {/********************************/}
-  {/* !! SOMETHING IS WRONG HERE !!*/}
-  {/********************************/}
-
-  // if (launchState == "LIFTOFF" || launchState == "FLIGHT") {
-  // Map the values of the MPU6050 sensor from -90 to 90 to values suitable for the servo control from 0 to 180
-  int servo0Value = map(ypr[2], -90, 90, 0, 180);
-  int servo1Value = map(ypr[2], -90, 90, 0, 180);
-  int servo2Value = map(ypr[2], -90, 90, 0, 180);
-  int servo3Value = map(ypr[2], -90, 90, 0, 180);
-
-  // Control the servos according to the MPU6050 orientation
-  servo0.write(servo0Value);
-  servo1.write(servo1Value);
-  servo2.write(servo2Value);
-  servo3.write(servo3Value);
-  // }
-}
-
-void deflectionTest() {
-  servo0.attach(servo0Pin);
-  servo1.attach(servo1Pin);
-  servo2.attach(servo2Pin);
-  servo3.attach(servo3Pin);
-  
-  // Test servo functionality
-  servo0.write(180);
-  servo1.write(-180);
-  servo2.write(180);
-  servo3.write(-180);
-  delay(2000);
-  servo0.write(-180);
-  servo1.write(180);
-  servo2.write(-180);
-  servo3.write(180);
-  delay(2000);
-  servo0.write(90);
-  servo1.write(90);
-  servo2.write(90);
-  servo3.write(90);
-  delay(2000);
-}
-
-void deploy() {
- chutesFired = true;
- // Fire relay
- digitalWrite(PYRO_1, HIGH);
- delay(1000);
- digitalWrite(PYRO_1, LOW);
- delay(100);
-}
-
-void touchdown() {
-  altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);
- if (altitude - lastAlt == 0) {
-    landed = true;
-    launchState = "TOUCHDOWN";
-  }
-}
-
 void transmitData() {
-  /**********************************
-   * Convert collected data to JSON *
-   **********************************/
   String Payload = "";
-  if (debugState == "ON") {
+  
+  float packet[10];
+
+  if (verboseLogs) {
     Payload += "{";
     Payload += "\"Temperature\": ";
     Payload += bme.readTemperature();
@@ -731,43 +594,35 @@ void transmitData() {
     Payload += """\"";
     Payload += "}";
   } else {
-    Payload += bme.readTemperature();
-    Payload += ",";
-    Payload += (bme.readPressure() / 100.0F);
-    Payload += ",";
-    Payload += calculateAltitude(bme.readAltitude(SEALEVELPRESSURE_HPA), aaReal.y);
-    Payload += ",";
-    Payload += bme.readHumidity();
-    Payload += ",";
-    Payload += ypr[0];
-    Payload += ",";
-    Payload += ypr[1];
-    Payload += ",";
-    Payload += ypr[2];
-    Payload += ",";
-    Payload += calculateXDisplacement(aaReal.x);
-    Payload += ",";
-    Payload += calculateYDisplacement(aaReal.y);
-    Payload += ",";
-    Payload += calculateZDisplacement(aaReal.z);
+    packet[0] = bme.readTemperature();
+    packet[1] = (bme.readPressure() / 100.0F);
+    packet[2] = calculateAltitude(bme.readAltitude(SEALEVELPRESSURE_HPA), aaReal.y);
+    packet[3] = bme.readHumidity();
+    packet[4] = ypr[0];
+    packet[5] = ypr[1];
+    packet[6] = ypr[2];
+    packet[7] = calculateXDisplacement(aaReal.x);
+    packet[8] = calculateYDisplacement(aaReal.y);
+    packet[9] = calculateZDisplacement(aaReal.z);
     //  ! (WIP - Battery Status)
-    // Payload += ",";
-    // Payload += measuredvbat;
-  }
-      
-  char packet[250];
-  int i = 0;
-  int sizeOf = 250;
-  int offset = 0;
-  
-  while((i<sizeOf))
-  {
-      packet[i]=Payload[i];  
-      i++;
-  }
+    // packet[10] = measuredvbat;
+  } 
 
-  Serial.println(packet);
+  for (int i = 0; i < 10; i++) {
+    if (i == 0) {
+      Serial.print("{");
+    }
+    Serial.print(packet[i]);
+    if (i < 9) {
+      Serial.print(",");
+    }
+  }
+  Serial.println("}");
 
+  pdtp(packet);
+}
+
+void sendPacket(char *packet) {
   /*******************************/
   /*  LoRa Payload transmission  */
   /*******************************/
@@ -817,6 +672,161 @@ void sync() {
   }
 }
 
+// Payload Data Transmit Protocol
+// FS Btye - 1 byte
+// Dest Address - 2 bytes
+// Src Address - 2 bytes
+// Payload - 54 bytes
+// Seq Num - 1 byte
+// FCSN - 4 bytes
+void pdtp(float payloadPacket[10]) {
+  byte pdtpPacket[48]; // Initialize the data packet as an array of bytes
+
+  // First, convert the payload data and store in a byte array
+  // 40 bytes (4 bytes/float * 10 float values)
+  byte payloadBytes[40];
+  for (int i = 0; i < 10; i++) {
+    const byte* bytePtr = reinterpret_cast<const byte*>(&payloadPacket[i]);
+    
+    for (int j = 0; j < sizeof(float); j++) {
+      payloadBytes[i * sizeof(float) + j] = bytePtr[j];
+    }
+  }
+
+  // Second, set destination and source address bytes
+  // If source is BLEP, set byte to 01110011
+  // If source is ground computer, set byte to 01000010
+  byte sourceAddress = 115; // BLEP
+  byte destAddress = 130; // Ground
+
+  // Next, calculate the FS Byte based on the type of data
+  // 0 - INFO
+  // 1 - DATA
+  // 2 - ERROR
+  // 3 - SYNC
+
+  // ! WIP - Need to store data status variables in either variables 
+  // ! header or in a global variable
+  byte fsByte = 0; 
+
+  // Now, calculate the CRC for the payload byte array
+  uint16_t FCSN = calculateCRC16(payloadBytes, sizeof(payloadBytes));
+
+  /** Future update: include Y/P/R correction values in PDTP packet */
+
+  // Populate pdtpPacket
+  // 1. FS Byte (1 byte)
+  pdtpPacket[0] = fsByte;
+
+  // 2. Destination Address (2 bytes)
+  pdtpPacket[1] = (destAddress >> 8) & 0xFF; // High byte
+  pdtpPacket[2] = destAddress & 0xFF;        // Low byte
+
+  // 3. Source Address (2 bytes)
+  pdtpPacket[3] = (sourceAddress >> 8) & 0xFF; // High byte
+  pdtpPacket[4] = sourceAddress & 0xFF;        // Low byte
+
+  // 4. Payload (40 bytes)
+  memcpy(&pdtpPacket[5], payloadBytes, 40); 
+
+  // 5. Sequence Number (1 byte)
+  pdtpPacket[45] = sequenceNumber++;
+
+  // 6. FCSN (2 bytes)
+  pdtpPacket[46] = (FCSN >> 8) & 0xFF; // High byte
+  pdtpPacket[47] = FCSN & 0xFF;        // Low byte
+};
+
+
+/***********************************************************************************************/
+/*********************************** REACTION CONTROL SYSTEM ***********************************/
+/***********************************************************************************************/
+void rcs(float *ypr) {
+  // Convert Yaw/Pitch/Roll to readable values   
+  ypr[0] = ypr[0] * 180 / M_PI;
+  ypr[1] = ypr[1] * 180 / M_PI;
+  ypr[2] = ypr[2] * 180 / M_PI;
+
+  // Add Yaw/Pitch/Roll values to Kalman Filter(s)
+  ypr[0] = yawKalmanFilter.updateEstimate(ypr[0]);
+  ypr[1] = pitchKalmanFilter.updateEstimate(ypr[1]);
+  ypr[2] = rollKalmanFilter.updateEstimate(ypr[2]);
+
+  {/********************************/}
+  {/* !! SOMETHING IS WRONG HERE !!*/}
+  {/********************************/}
+
+  // if (launchState == "LIFTOFF" || launchState == "FLIGHT") {
+  // Map the values of the MPU6050 sensor from -90 to 90 to values suitable for the servo control from 0 to 180
+  int servo0Value = map(ypr[2], -90, 90, 0, 180);
+  int servo1Value = map(ypr[2], -90, 90, 0, 180);
+  int servo2Value = map(ypr[2], -90, 90, 0, 180);
+  int servo3Value = map(ypr[2], -90, 90, 0, 180);
+
+  // Control the servos according to the MPU6050 orientation
+  servo0.write(servo0Value);
+  servo1.write(servo1Value);
+  servo2.write(servo2Value);
+  servo3.write(servo3Value);
+  // }
+}
+
+/*********************************************************************************************************************************************************************/
+/*********************************************************************************************************************************************************************/
+/************************************************************************ Auxillary Functions ************************************************************************/
+/*********************************************************************************************************************************************************************/
+/*********************************************************************************************************************************************************************/
+void blep(uint8_t buzzerPin, int pitch, int length) {
+  if (!mute) {
+    tone(buzzerPin, pitch);
+    digitalWrite(LEDPIN, HIGH);
+    delay(length);
+    noTone(buzzerPin);
+    digitalWrite(LEDPIN, LOW);
+  }
+}
+
+void deflectionTest() {
+  servo0.attach(servo0Pin);
+  servo1.attach(servo1Pin);
+  servo2.attach(servo2Pin);
+  servo3.attach(servo3Pin);
+  
+  // Test servo functionality
+  servo0.write(180);
+  servo1.write(-180);
+  servo2.write(180);
+  servo3.write(-180);
+  delay(2000);
+  servo0.write(-180);
+  servo1.write(180);
+  servo2.write(-180);
+  servo3.write(180);
+  delay(2000);
+  servo0.write(90);
+  servo1.write(90);
+  servo2.write(90);
+  servo3.write(90);
+  delay(2000);
+}
+
+void deploy() {
+ chutesFired = true;
+ // Fire relay
+ digitalWrite(PYRO_1, HIGH);
+ delay(1000);
+ digitalWrite(PYRO_1, LOW);
+ delay(100);
+}
+
+void touchdown() {
+ altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);
+ if (altitude - lastAlt == 0) {
+    landed = true;
+    launchState = "TOUCHDOWN";
+  }
+}
+
 // Blink and beep to indicate vehicle status after startup
 void missionBlep(float intervalSkip, int pitch) {
   unsigned long missionTime = millis();
@@ -833,6 +843,24 @@ void missionBlep(float intervalSkip, int pitch) {
       launchState = "IDLE";
     }
 
+}
+
+// CRC16 Checksum Calculation
+uint16_t calculateCRC16(const byte *data, size_t length) {
+  const uint16_t polynomial = 0x1021; // CRC-16-CCITT polynomial
+  uint16_t crc = 0xFFFF; // Initial CRC value
+
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= (uint16_t)data[i] << 8;
+    for (uint8_t j = 0; j < 8; ++j) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ polynomial;
+      } else {
+        crc <<= 1;
+      }
+    }
+  }
+  return crc;
 }
 
 /************************************************************************/
