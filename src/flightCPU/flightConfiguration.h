@@ -29,6 +29,11 @@
 #define YGYRO_OFFSET 85
 #define ZGYRO_OFFSET 7
 
+/** TELEMETRY OPTIONS
+ * @param ACTIVE - send data over LoRaWAN
+ * @param LOCAL - send data over WiFi
+ * @param INACTIVE - disable remote communications entirely
+ */
 #define TELEMETRY "INACTIVE"
 #define DEFLECTION_TEST "INACTIVE"
 

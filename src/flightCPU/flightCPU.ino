@@ -77,24 +77,11 @@ void loop() {
   if (launchState == "ARMED") {
     missionBlep(interval, 1200);
     flightControl();
-    if (TELEMETRY == "ACTIVE") {
-      // Check to see if groundControl is available
-      sync();
-    }
-    if (TELEMETRY == "LOCAL") {
-      Udp.beginPacket(remoteIp, localPort);
-      Udp.write("INFO - ACTIVE");
-      Udp.endPacket();
-    }
     // Reduce power consumption of loop frequency by limiting data collection to 2Hz
     delay(500);
    } else if (launchState == "IDLE") {
     missionBlep(interval, 1000);
     flightControl();
-    if (TELEMETRY == "ACTIVE") {
-      // Check to see if groundControl is available
-      sync();
-    }
     // If flight computer is in 'IDLE' mode, lower to 0.3Hz to further improve battery performance
     delay(3000);
    } else if (launchState == "LIFTOFF"
@@ -209,6 +196,11 @@ void preCheck() {
   delay(2000);  // time to get serial running
   unsigned status;
 
+  // If TELEMETRY value is not accurately set, abort the flight program.
+  if ((TELEMETRY != "ACTIVE") || (TELEMETRY != "LOCAL") || (TELEMETRY != "INACTIVE")) {
+    launchState = "ERROR";
+  }
+
   if (TELEMETRY == "ACTIVE") {
     Serial.println();
     Serial.println("LoRa Radio module found!");
@@ -233,10 +225,6 @@ void preCheck() {
     Serial.print("Frequency set to: "); Serial.println(RF95_FREQ);
 
     rf95.setTxPower(23, false);
-  } else if (TELEMETRY == "INACTIVE") {
-    Serial.println();
-    Serial.println("Telemetry set to INACTIVE. LoRa and WiFi modules not in use.");
-    Serial.println();
   }
 
   if (TELEMETRY == "LOCAL") {
@@ -296,6 +284,12 @@ void preCheck() {
       Udp.write("INFO - WiFi Module Detected!");
     }
     Udp.endPacket();
+  }
+
+  if (TELEMETRY == "INACTIVE") {
+    Serial.println();
+    Serial.println("Telemetry set to INACTIVE. LoRa and WiFi modules not in use.");
+    Serial.println();
   }
 
   Serial.print("Now, let's see if the BME280 Barometer is connected. Standby");
@@ -556,6 +550,136 @@ void getVehicleAltitude() {
 /***********************************************************************************************/
 /*********************************** TELEMETRY/TRANSMISSION  ***********************************/
 /***********************************************************************************************/
+// Send PDTP bundled packet over appropriate network channel
+void sendPacket(byte packet) {
+  /*******************************/
+  /*  LoRa Payload transmission  */
+  /*******************************/
+  if (TELEMETRY == "ACTIVE") {
+    rf95.send(packet, sizeof(packet));
+    delay(10);
+    rf95.waitPacketSent();
+  }
+
+  if (TELEMETRY == "LOCAL") {
+    Udp.beginPacket(remoteIp, localPort);
+    if (packet) {
+      Udp.write(packet);
+    }
+    Udp.endPacket();
+  }
+
+  sync();
+}
+
+// !! WIP - Send/receive ACK commands from remote to vehicle and vice-versa !!
+void sync() {
+  if (rf95.available())
+  {
+    // Fetch message from ground control
+    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+    uint8_t len = sizeof(buf);
+
+    if (rf95.recv(buf, &len))
+    {
+      RH_RF95::printBuffer("Received: ", buf, len);
+      Serial.print("Got: ");
+      Serial.println((char*)buf);
+      Serial.print("RSSI: ");
+      Serial.println(rf95.lastRssi(), DEC);
+      
+      // Temporary pitch value to audibly distinguish status
+      blep(BUZZER_PIN, 800, 50); 
+
+      // Send a reply
+      uint8_t data[] = "TELEMETRY GOOD";
+      rf95.send(data, sizeof(data));
+      rf95.waitPacketSent();
+      Serial.println("TELEMETRY GOOD");
+    }
+    else
+    {
+      Serial.println("Failed to fetch data from ground control. Trying again, standby...");
+    }
+  }
+}
+
+/** Payload Data Transmit Protocol
+ * FS Btye - 1 byte
+ * Dest Address - 2 bytes
+ * Src Address - 2 bytes
+ * Payload - 54 bytes
+ * Seq Num - 1 byte
+ * FCSN - 4 bytes
+ * @param payloadPacket The array of float values associated with the paylaod data
+ * @param statusByte A float value of 0-4 representing the message type
+ */
+void pdtp(float payloadPacket[10], uint8_t statusByte) {
+  byte pdtpPacket[48]; // Initialize the data packet as an array of bytes
+
+  // First, convert the payload data and store in a byte array
+  // 40 bytes (4 bytes/float * 10 float values)
+  byte payloadBytes[40];
+  for (int i = 0; i < 10; i++) {
+    const byte* bytePtr = reinterpret_cast<const byte*>(&payloadPacket[i]);
+    
+    for (int j = 0; j < sizeof(float); j++) {
+      payloadBytes[i * sizeof(float) + j] = bytePtr[j];
+    }
+  }
+
+  // Second, set destination and source address bytes
+  // If source is BLEP, set byte to 01110011
+  // If source is ground computer, set byte to 01000010
+  byte sourceAddress = 115; // BLEP
+  byte destAddress = 130; // Ground
+
+  // Next, calculate the FS Byte based on the type of data
+  // 0 - INFO
+  // 1 - DATA
+  // 2 - ACK
+  // 3 - SYNC
+  // 4 - ERROR
+
+  // ! WIP - Need to store data status variables in either variables 
+  // ! header or in a global variable
+  // byte fsByte = 0; 
+  byte fsByte = &statusByte; 
+
+  // Now, calculate the CRC for the payload byte array
+  uint16_t FCSN = calculateCRC16(payloadBytes, sizeof(payloadBytes));
+
+  /** Future update: include Y/P/R correction values in PDTP packet */
+
+  // Populate pdtpPacket
+  // 1. FS Byte (1 byte)
+  pdtpPacket[0] = fsByte;
+
+  // 2. Destination Address (2 bytes)
+  pdtpPacket[1] = (destAddress >> 8) & 0xFF; // High byte
+  pdtpPacket[2] = destAddress & 0xFF;        // Low byte
+
+  // 3. Source Address (2 bytes)
+  pdtpPacket[3] = (sourceAddress >> 8) & 0xFF; // High byte
+  pdtpPacket[4] = sourceAddress & 0xFF;        // Low byte
+
+  // 4. Payload (40 bytes)
+  memcpy(&pdtpPacket[5], payloadBytes, 40); 
+
+  // 5. Sequence Number (1 byte)
+  pdtpPacket[45] = sequenceNumber++;
+
+  // 6. FCSN (2 bytes)
+  pdtpPacket[46] = (FCSN >> 8) & 0xFF; // High byte
+  pdtpPacket[47] = FCSN & 0xFF;        // Low byte
+
+
+  if (TELEMETRY != 'INACTIVE') {
+    // Once packet has been created/bundled, send it over the network if possible.
+    sendPacket(pdtpPacket);
+  }
+};
+
 void transmitData() {
   String Payload = "";
   
@@ -621,121 +745,6 @@ void transmitData() {
 
   pdtp(packet);
 }
-
-void sendPacket(char *packet) {
-  /*******************************/
-  /*  LoRa Payload transmission  */
-  /*******************************/
-  if (TELEMETRY == "ACTIVE") {
-    rf95.send((uint8_t *)packet, 200);
-    delay(10);
-    rf95.waitPacketSent();
-  }
-
-  if (TELEMETRY == "LOCAL") {
-    Udp.beginPacket(remoteIp, localPort);
-    if (packet) {
-      Udp.write(packet);
-    }
-    Udp.endPacket();
-  }
-}
-
-void sync() {
-  if (rf95.available())
-  {
-    // Fetch message from ground control
-    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-    uint8_t len = sizeof(buf);
-
-    if (rf95.recv(buf, &len))
-    {
-      RH_RF95::printBuffer("Received: ", buf, len);
-      Serial.print("Got: ");
-      Serial.println((char*)buf);
-      Serial.print("RSSI: ");
-      Serial.println(rf95.lastRssi(), DEC);
-      
-      // Temporary pitch value to audibly distinguish status
-      blep(BUZZER_PIN, 800, 50); 
-
-      // Send a reply
-      uint8_t data[] = "TELEMETRY GOOD";
-      rf95.send(data, sizeof(data));
-      rf95.waitPacketSent();
-      Serial.println("TELEMETRY GOOD");
-    }
-    else
-    {
-      Serial.println("Failed to fetch data from ground control. Trying again, standby...");
-    }
-  }
-}
-
-// Payload Data Transmit Protocol
-// FS Btye - 1 byte
-// Dest Address - 2 bytes
-// Src Address - 2 bytes
-// Payload - 54 bytes
-// Seq Num - 1 byte
-// FCSN - 4 bytes
-void pdtp(float payloadPacket[10]) {
-  byte pdtpPacket[48]; // Initialize the data packet as an array of bytes
-
-  // First, convert the payload data and store in a byte array
-  // 40 bytes (4 bytes/float * 10 float values)
-  byte payloadBytes[40];
-  for (int i = 0; i < 10; i++) {
-    const byte* bytePtr = reinterpret_cast<const byte*>(&payloadPacket[i]);
-    
-    for (int j = 0; j < sizeof(float); j++) {
-      payloadBytes[i * sizeof(float) + j] = bytePtr[j];
-    }
-  }
-
-  // Second, set destination and source address bytes
-  // If source is BLEP, set byte to 01110011
-  // If source is ground computer, set byte to 01000010
-  byte sourceAddress = 115; // BLEP
-  byte destAddress = 130; // Ground
-
-  // Next, calculate the FS Byte based on the type of data
-  // 0 - INFO
-  // 1 - DATA
-  // 2 - ERROR
-  // 3 - SYNC
-
-  // ! WIP - Need to store data status variables in either variables 
-  // ! header or in a global variable
-  byte fsByte = 0; 
-
-  // Now, calculate the CRC for the payload byte array
-  uint16_t FCSN = calculateCRC16(payloadBytes, sizeof(payloadBytes));
-
-  /** Future update: include Y/P/R correction values in PDTP packet */
-
-  // Populate pdtpPacket
-  // 1. FS Byte (1 byte)
-  pdtpPacket[0] = fsByte;
-
-  // 2. Destination Address (2 bytes)
-  pdtpPacket[1] = (destAddress >> 8) & 0xFF; // High byte
-  pdtpPacket[2] = destAddress & 0xFF;        // Low byte
-
-  // 3. Source Address (2 bytes)
-  pdtpPacket[3] = (sourceAddress >> 8) & 0xFF; // High byte
-  pdtpPacket[4] = sourceAddress & 0xFF;        // Low byte
-
-  // 4. Payload (40 bytes)
-  memcpy(&pdtpPacket[5], payloadBytes, 40); 
-
-  // 5. Sequence Number (1 byte)
-  pdtpPacket[45] = sequenceNumber++;
-
-  // 6. FCSN (2 bytes)
-  pdtpPacket[46] = (FCSN >> 8) & 0xFF; // High byte
-  pdtpPacket[47] = FCSN & 0xFF;        // Low byte
-};
 
 
 /***********************************************************************************************/
