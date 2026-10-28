@@ -6,3 +6,4 @@ src/flightCPU/network.h
 .pio/
 id_ed25519
 *.pub
+.DS_Store
