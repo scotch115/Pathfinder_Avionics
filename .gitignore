@@ -4,3 +4,5 @@ Schematics/PCB Design Files/FlightComputer.s#*
 flows.json
 src/flightCPU/network.h
 .pio/
+id_ed25519
+*.pub
