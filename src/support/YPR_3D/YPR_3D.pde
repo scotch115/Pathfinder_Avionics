@@ -2,6 +2,7 @@ import processing.serial.*;
 
 Serial port;  // The serial port
 float roll, pitch, yaw;
+PShape rocket;
 
 void setup() {
   size(500, 500, P3D);
@@ -10,15 +11,15 @@ void setup() {
   // Open the port you are using at the rate you want:
   port = new Serial(this, Serial.list()[2], 115200);
   port.clear();
-  strokeWeight(4);
-  noFill();
+  rocket = loadShape("rocket.obj");
 }
 
 void draw() {
-  lights();
-  background(255);
+  background(0);
+  
   String str = port.readStringUntil('\n');
   translate(width/2, height/2);
+  rotateZ(180);
   if (str != null) {
     String[] strs = str.split(",");
     if(strs.length >= 3){
@@ -27,9 +28,12 @@ void draw() {
       roll = PApplet.parseFloat(strs[6]);
     }
   }
-  println(roll, pitch, yaw);
+  pushMatrix();
+  //println(roll, pitch, yaw);
   rotateY(-roll);
   rotateX(pitch);
   rotateZ(yaw);
-  box(150);
+  scale(5);
+  shape(rocket);
+  popMatrix();
 }
