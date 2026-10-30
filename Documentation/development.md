@@ -36,8 +36,8 @@ Custom PCB worked after a slight modification to the electrical grounding system
 ## Flight Computer
 This is the assembled Mk.1 version of the flight computer, equipped with a barometer and IMU for tracking altitude, temperature, orientation, and velocity.
 
-<img src="Images/flightCPU.PNG" width="40%" style="transform: rotate(270deg); margin-top: 65px; margin-bottom: 80px;" />
-<img src="Images/groundCtrl.PNG" width="40%" style="transform: rotate(270deg); margin-top: 65px; margin-bottom: 80px;"/>
+<img src="Images/flightCPU.PNG" width="40%" style="margin-top: 65px; margin-bottom: 80px;" />
+<img src="Images/groundCtrl.PNG" width="40%" style=" margin-top: 65px; margin-bottom: 80px;"/>
   
 
 > UPDATE (MK. II)
@@ -61,7 +61,9 @@ The AirLift Wi-Fi Co-Processor on both the Adalogger and Metro are able to succe
 When the flight computer software is complete, the ground control system will be updated. Now that the onboard telemtry has shifted to use 900Mhz radio, the communication with the rocket will also be updated to use radio, and the data received by the ground control computer will be sent to a new server for analysis and logging. The new data analysis server utilizes Serial Studio instead of node-red, which is significantly more robust and efficient when dealing with high-speed data input, and doesn't suffer from the read/write operations to graphs, but still provides a JSON file as output for post-launch analysis. The primary MCU for the ground control computer will be a Teensy 3.2, connected to a LoRa Featherwing using the Teensy-Feather adapter board. 
 
 # Phase IV - Software Development and Documentation
-After completing the design of the PCB, additional software testing was performed, and some issues with the RF data transmitting arose. After much effort, it was determined that either (A) the hardware was experiencing issues due to accidental intermodulation overload (using RF modules too close together causing hardware failure) or (B) the data packets being sent were too large and causing software-related issues when trying to transmit data (i.e. buffer overload on the antenna chip). This inspired the creation of an Interface Control Document for the BLEP flight computer to help solidify both the hardware and software elements of the avionics system. Having a single source document helped in the development of clear requirements, goals, and implementations of mathematical algorithms to be used for this project, and can now be found [here](747871BLEP-01.pdf).
+After completing the design of the PCB, additional software testing was performed, and some issues with the RF data transmitting arose. After much effort, it was determined that either (A) the hardware was experiencing issues due to accidental intermodulation overload (using RF modules too close together causing hardware failure) or (B) the data packets being sent were too large and causing software-related issues when trying to transmit data (i.e. buffer overload on the antenna chip). This inspired the creation of an Interface Control Document for the BLEP flight computer to help solidify both the hardware and software elements of the avionics system. Having a single source document helped in the development of clear requirements, goals, and implementations of mathematical algorithms to be used for this project, and can now be found [here](BLEP-01.pdf).
+
+[Update | 2026] Development of avionics software still in progress. 
 
 # Phase V - Rocket Design and Construction 
 > ~~Currently doing research and teaching myself rocket mechanics to design and build a stable, efficient rocket.~~  
