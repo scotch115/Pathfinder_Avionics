@@ -43,16 +43,16 @@
 #define LEDPIN 4
 
 // Servo Pin Assignments
-int servo0Pin = A1; // Top Right
-int servo1Pin = A14; // Top Left
-int servo2Pin = A0; // Bottom Right
-int servo3Pin = A3; // Bottom Left
+// int servo0Pin = A1; // Top Right
+// int servo1Pin = A14; // Top Left
+// int servo2Pin = A0; // Bottom Right
+// int servo3Pin = A3; // Bottom Left
 
-// Servo Definition
-PWMServo servo0;
-PWMServo servo1;
-PWMServo servo2;
-PWMServo servo3;
+// // Servo Definition
+// PWMServo servo0;
+// PWMServo servo1;
+// PWMServo servo2;
+// PWMServo servo3;
 
 /* -== SENSORS ==- */
 // Barometric Altimeter Definition

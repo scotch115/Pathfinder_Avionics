@@ -11,8 +11,14 @@
  * @param LOCAL - send data over WiFi
  * @param INACTIVE - disable remote communications entirely
  */
+ /** 
+    * +------------------------------------------------------+
+    * | Modifying to support AELD Final Project *            |
+    * | (Disabling unnecessary RF transmission / servo code.)|
+    * +------------------------------------------------------+
+    */
 #define TELEMETRY "INACTIVE"
-#define DEFLECTION_TEST "ACTIVE"
+#define DEFLECTION_TEST "INACTIVE"
 
 #define PYRO1 false
 #define RCS false

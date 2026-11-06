@@ -78,9 +78,17 @@ void pdtpTx(PDTP_Packet& packet) {
   // 6. CRC (1 byte)
   pdtpPacket[31] = CRC;
 
-  Wire.beginTransmission(0x82); // 0x82 is the Big Endian value of 130, the SPU address
-  Wire.write(pdtpPacket, 32);
-  Wire.endTransmission();
+  /** 
+    * +----------------------------------------------------+
+    * | Modifying to support AELD Final Project *          |
+    * | (sending data over Serial / UART to Raspberry Pi.) |
+    * +----------------------------------------------------+
+    */ 
+  // Wire.beginTransmission(0x82); // 0x82 is the Big Endian value of 130, the SPU address
+  // Wire.write(pdtpPacket, 32);
+  // Wire.endTransmission();
+
+  Serial.print(pdtpPacket, 32);
 
   sequenceNumber = sequenceNumber + 1;
   delay(10);
@@ -94,80 +102,86 @@ void pdtpTx(PDTP_Packet& packet) {
  * Seq Num - 2 bytes
  * CRC - 1 byte
  */
-void pdtpRx() {
-  byte rxPkt[3];
+ /** 
+    * +----------------------------------------------------+
+    * | Modifying to support AELD Final Project *          |
+    * | (Disabling unnecessary RF transmission code.)      |
+    * +----------------------------------------------------+
+    */
+// void pdtpRx() {
+//   byte rxPkt[3];
   
-  // Wire.requestFrom(0x82, 3); // Request data from SPU
-  while (1 < Wire.available()) {
-    for (int b = 0; b < 3; b++) {
-      rxPkt[b] = Wire.read();
-    }
-  }
-  delay(100);
+//   // Wire.requestFrom(0x82, 3); // Request data from SPU
+//   while (1 < Wire.available()) {
+//     for (int b = 0; b < 3; b++) {
+//       rxPkt[b] = Wire.read();
+//     }
+//   }
+//   delay(100);
 
-  Serial.println("");Serial.println("");
-  Serial.println("#########");
-  Serial.println("# BYTES #");
-  Serial.println("#########");
-  for (int i = 0; i < 3; i++) {
-    Serial.print(rxPkt[i]);
-    if (i != 3) {
-      Serial.print(",");
-    }
-  }
-  Serial.println("");
+//   Serial.println("");Serial.println("");
+//   Serial.println("#########");
+//   Serial.println("# BYTES #");
+//   Serial.println("#########");
+//   for (int i = 0; i < 3; i++) {
+//     Serial.print(rxPkt[i]);
+//     if (i != 3) {
+//       Serial.print(",");
+//     }
+//   }
+//   Serial.println("");
 
-  // Extract the PDTP packet attributes
-  // char* message;
-  // message[0] = rxPkt[3];
-  // message[1] = rxPkt[4];
-  // message[2] = rxPkt[5];
-  // byte statusByte = rxPkt[0];
-  // byte destAddr = rxPkt[1];
-  // byte srcAddr = rxPkt[2];
-  // byte crc = rxPkt[31];
+//   // Extract the PDTP packet attributes
+//   // char* message;
+//   // message[0] = rxPkt[3];
+//   // message[1] = rxPkt[4];
+//   // message[2] = rxPkt[5];
+//   // byte statusByte = rxPkt[0];
+//   // byte destAddr = rxPkt[1];
+//   // byte srcAddr = rxPkt[2];
+//   // byte crc = rxPkt[31];
 
-  // Serial.println("");Serial.println("");
-  // Serial.println("#######");
-  // Serial.println("# MSG #");
-  // Serial.println("#######");
+//   // Serial.println("");Serial.println("");
+//   // Serial.println("#######");
+//   // Serial.println("# MSG #");
+//   // Serial.println("#######");
 
-  // Serial.println(message);
+//   // Serial.println(message);
 
-  // TODO - Implement check here to decode/determine how to proceed
-  // (i.e. INFO messages don't need to be extracted)
-  // Also, primary flight computer will never need to RX sensor data, update
-  // to only "process" commands
-  // -- switch statement based on "command" passed in can call various auxiliary functions
-  // int16_t tmp = ((int16_t)rxPkt[3] << 8) | rxPkt[4]; 
-  // int16_t kpa = ((int16_t)rxPkt[5] << 8) | rxPkt[6]; 
-  // int16_t alt = ((int16_t)rxPkt[7] << 8) | rxPkt[8]; 
-  // int16_t hum = ((int16_t)rxPkt[9] << 8) | rxPkt[10]; 
-  // int16_t yaw = ((int16_t)rxPkt[11] << 8) | rxPkt[12]; 
-  // int16_t pch = ((int16_t)rxPkt[13] << 8) | rxPkt[14]; 
-  // int16_t rol = ((int16_t)rxPkt[15] << 8) | rxPkt[16]; 
-  // int16_t acx = ((int16_t)rxPkt[17] << 8) | rxPkt[18]; 
-  // int16_t acy = ((int16_t)rxPkt[19] << 8) | rxPkt[20]; 
-  // int16_t acz = ((int16_t)rxPkt[21] << 8) | rxPkt[22]; 
-  // int16_t yrc = ((int16_t)rxPkt[23] << 8) | rxPkt[24]; 
-  // int16_t prc = ((int16_t)rxPkt[25] << 8) | rxPkt[26]; 
-  // int16_t rrc = ((int16_t)rxPkt[27] << 8) | rxPkt[28]; 
-  // int16_t sn =  ((int16_t)rxPkt[29] << 8) | rxPkt[30];
+//   // TODO - Implement check here to decode/determine how to proceed
+//   // (i.e. INFO messages don't need to be extracted)
+//   // Also, primary flight computer will never need to RX sensor data, update
+//   // to only "process" commands
+//   // -- switch statement based on "command" passed in can call various auxiliary functions
+//   // int16_t tmp = ((int16_t)rxPkt[3] << 8) | rxPkt[4]; 
+//   // int16_t kpa = ((int16_t)rxPkt[5] << 8) | rxPkt[6]; 
+//   // int16_t alt = ((int16_t)rxPkt[7] << 8) | rxPkt[8]; 
+//   // int16_t hum = ((int16_t)rxPkt[9] << 8) | rxPkt[10]; 
+//   // int16_t yaw = ((int16_t)rxPkt[11] << 8) | rxPkt[12]; 
+//   // int16_t pch = ((int16_t)rxPkt[13] << 8) | rxPkt[14]; 
+//   // int16_t rol = ((int16_t)rxPkt[15] << 8) | rxPkt[16]; 
+//   // int16_t acx = ((int16_t)rxPkt[17] << 8) | rxPkt[18]; 
+//   // int16_t acy = ((int16_t)rxPkt[19] << 8) | rxPkt[20]; 
+//   // int16_t acz = ((int16_t)rxPkt[21] << 8) | rxPkt[22]; 
+//   // int16_t yrc = ((int16_t)rxPkt[23] << 8) | rxPkt[24]; 
+//   // int16_t prc = ((int16_t)rxPkt[25] << 8) | rxPkt[26]; 
+//   // int16_t rrc = ((int16_t)rxPkt[27] << 8) | rxPkt[28]; 
+//   // int16_t sn =  ((int16_t)rxPkt[29] << 8) | rxPkt[30];
 
-  // Serial.println("PDTP Payload contents:");
-  // Serial.println("----------------------");
-  // Serial.print(tmp); Serial.print(",");
-  // Serial.print(kpa); Serial.print(",");
-  // Serial.print(alt); Serial.print(",");
-  // Serial.print(hum); Serial.print(",");
-  // Serial.print(yaw); Serial.print(",");
-  // Serial.print(pch); Serial.print(",");
-  // Serial.print(rol); Serial.print(",");
-  // Serial.print(acx); Serial.print(",");
-  // Serial.print(acy); Serial.print(",");
-  // Serial.print(acz); Serial.print(",");
-  // Serial.print(yrc); Serial.print(",");
-  // Serial.print(prc); Serial.print(",");
-  // Serial.print(rrc); Serial.print(",");
-  // Serial.println(sn);
-}
+//   // Serial.println("PDTP Payload contents:");
+//   // Serial.println("----------------------");
+//   // Serial.print(tmp); Serial.print(",");
+//   // Serial.print(kpa); Serial.print(",");
+//   // Serial.print(alt); Serial.print(",");
+//   // Serial.print(hum); Serial.print(",");
+//   // Serial.print(yaw); Serial.print(",");
+//   // Serial.print(pch); Serial.print(",");
+//   // Serial.print(rol); Serial.print(",");
+//   // Serial.print(acx); Serial.print(",");
+//   // Serial.print(acy); Serial.print(",");
+//   // Serial.print(acz); Serial.print(",");
+//   // Serial.print(yrc); Serial.print(",");
+//   // Serial.print(prc); Serial.print(",");
+//   // Serial.print(rrc); Serial.print(",");
+//   // Serial.println(sn);
+// }
