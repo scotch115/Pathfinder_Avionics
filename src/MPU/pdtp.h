@@ -10,11 +10,11 @@
  * CRC - 1 byte
  * @param packet
  */
-void pdtpTx(PDTP_Packet &packet) {
+void pdtp_tx(PDTP_Packet &packet) {
   byte pdtpPacket[32]; // Initialize the data packet as an array of bytes
   
-  byte sourceAddress = 115; // MPU 
-  byte destAddress = 130; // SPU
+  uint16_t sourceAddress = 115; // MPU 
+  uint16_t destAddress = 130; // SPU
 
   packet.payload.tmp = int(trunc(bme.readTemperature()));
   packet.payload.kpa = int(trunc((bme.readPressure() / 100.0F) / 10)); // Convert to kPa
@@ -118,13 +118,7 @@ void pdtpTx(PDTP_Packet &packet) {
  * Seq Num - 2 bytes
  * CRC - 1 byte
  */
- /** 
-    * +----------------------------------------------------+
-    * | Modifying to support AELD Final Project *          |
-    * | (Disabling unnecessary RF transmission code.)      |
-    * +----------------------------------------------------+
-    */
-// void pdtpRx() {
+// void pdtp_rx() {
 //   byte rxPkt[3];
   
 //   // Wire.requestFrom(0x82, 3); // Request data from SPU

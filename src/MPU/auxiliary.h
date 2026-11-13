@@ -5,43 +5,37 @@
 /*********************************************************************************************************************************************************************/
 void blep(uint8_t buzzerPin, int pitch, int length) {
   // unsigned long startTime = millis(); // TODO - Is it possible to use clock cycles for buzzer duration?
-  if (!mute) {
+  #if (mute == 0) 
     tone(buzzerPin, pitch);
     digitalWrite(LEDPIN, HIGH);
     delay(length);
     noTone(buzzerPin);
     digitalWrite(LEDPIN, LOW);
-  }
+  #endif
 }
 
-/** 
-    * +----------------------------------------------------+
-    * | Modifying to support AELD Final Project *          |
-    * | (Disabling unnecessary servo code.)                |
-    * +----------------------------------------------------+
-    */
-// void deflectionTest() {
-//   servo0.attach(servo0Pin);
-//   servo1.attach(servo1Pin);
-//   servo2.attach(servo2Pin);
-//   servo3.attach(servo3Pin);
-//   // Test servo functionality
-//   servo0.write(180);
-//   servo1.write(-180);
-//   servo2.write(180);
-//   servo3.write(-180);
-//   delay(2000);
-//   servo0.write(-180);
-//   servo1.write(180);
-//   servo2.write(-180);
-//   servo3.write(180);
-//   delay(2000);
-//   servo0.write(90);
-//   servo1.write(90);
-//   servo2.write(90);
-//   servo3.write(90);
-//   delay(2000);
-// }
+void deflectionTest() {
+  servo0.attach(servo0Pin);
+  servo1.attach(servo1Pin);
+  servo2.attach(servo2Pin);
+  servo3.attach(servo3Pin);
+  // Test servo functionality
+  servo0.write(180);
+  servo1.write(-180);
+  servo2.write(180);
+  servo3.write(-180);
+  delay(2000);
+  servo0.write(-180);
+  servo1.write(180);
+  servo2.write(-180);
+  servo3.write(180);
+  delay(2000);
+  servo0.write(90);
+  servo1.write(90);
+  servo2.write(90);
+  servo3.write(90);
+  delay(2000);
+}
 
 // TODO - Implement continuity check to determing if servos are even connected
 /**

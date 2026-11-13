@@ -3,7 +3,7 @@
 /*******************/
 void clk() {
 //  unsigned long currentTime = millis();
-  if (clockEnable == true) {
+  #if (clock_enable == 1)
     if (currentTime - clockTime >= (clockPeriod/2)) { // Divide clock period by half to include high and low clock cycles
       clockTime = currentTime;
       if (clockState == CLK_LO) {
@@ -14,5 +14,5 @@ void clk() {
         // Serial.println("SETTING CLK LOW");
       }
     }
-  }
+  #endif
 }

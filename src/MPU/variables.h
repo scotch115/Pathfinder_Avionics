@@ -10,27 +10,15 @@
 /* -== TELEMETRY ==- */
 /* Pinouts */
 // LoRa Pin Assignments
-//#define RFM95_CS 8
-//#define RFM95_RST 4
-//#define RFM95_INT 3
-
-// WiFi Pin Assignments
-//#define SPIWIFI       SPI  // The SPI port
-//#define SPIWIFI_SS    13   // Chip select pin
-//#define ESP32_RESETN  12   // Reset pin
-//#define SPIWIFI_ACK   11   // a.k.a BUSY or READY pin
-//#define ESP32_GPIO0   -1
-
-// WiFi Module Definition
-// WiFiUDP Udp;
-// IPAddress remoteIp(10, 0, 0, 6);
+#define RFM95_CS 8
+#define RFM95_RST 4
+#define RFM95_INT 3
 
 // RF Pin Assignments
-//#define RF95_FREQ 915.0
+#define RF95_FREQ 915.0
 
 // LoRa Radio Module Definition
-//RH_RF95 rf95(RFM95_CS, RFM95_INT);
-//unsigned int localPort = 2390;      // local port to listen on
+RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 /* -== IO ==- */
 // Battery Voltage Pin Assignment(for collecting battery status)
@@ -43,16 +31,16 @@
 #define LEDPIN 4
 
 // Servo Pin Assignments
-// int servo0Pin = A1; // Top Right
-// int servo1Pin = A14; // Top Left
-// int servo2Pin = A0; // Bottom Right
-// int servo3Pin = A3; // Bottom Left
+int servo0Pin = A1; // Top Right
+int servo1Pin = A14; // Top Left
+int servo2Pin = A0; // Bottom Right
+int servo3Pin = A3; // Bottom Left
 
-// // Servo Definition
-// PWMServo servo0;
-// PWMServo servo1;
-// PWMServo servo2;
-// PWMServo servo3;
+// Servo Definition
+PWMServo servo0;
+PWMServo servo1;
+PWMServo servo2;
+PWMServo servo3;
 
 /* -== SENSORS ==- */
 // Barometric Altimeter Definition
@@ -103,9 +91,7 @@ uint16_t sequenceNumber = 0;  // Static sequence number for PDTP
 // 1 - DATA  //* Sensor data [1][0]
 // 2 - ACK   //* Response to/from secondary CPU [2][max of 15]
 // 3 - ERROR //* Error detected, shit's fucked [3][0 (send data still but mark it as an error)]
-byte statusByte;
-
-// bool descent = false; // Literally never used that
+uint16_t statusByte;
 
 struct payloadPacket {
   int16_t tmp;

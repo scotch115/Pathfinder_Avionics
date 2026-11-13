@@ -1,15 +1,27 @@
 /***********************************************************************************************/
 /*********************************** Power-on Built In Test   **********************************/
 /***********************************************************************************************/
-void preCheck() {
+void pbit() {
   vehicleState = STARTUP;
+  
+  Serial.println("+-----------------+");
+  Serial.println("| FLIGHT CONFIG   |");
+  Serial.println("+-----------------+");
+  Serial.print("| debug_state : ");Serial.print(debug_state);Serial.println(" |");
+  Serial.print("| mute        : ");Serial.print(mute);Serial.println(" |");
+  Serial.print("| CLK_Enable  : ");Serial.print(clock_enable);Serial.println(" |");
+  Serial.print("| TELEMETRY   : ");Serial.print(TELEMETRY);Serial.println(" |");
+  Serial.print("| FIN_TEST    : ");Serial.print(FIN_TEST);Serial.println(" |");
+  Serial.print("| PYRO_CH1    : ");Serial.print(PYRO1);Serial.println(" |");
+  Serial.print("| RCS ACTIVE  : ");Serial.print(RCS);Serial.println(" |");
+  Serial.println("+-----------------+");
 
-  if (debug_state == "ON") {
+  #if (debug_state == 1)
     Serial.println(); Serial.println();
     Serial.println("Beginning Pre-Flight Software check.");
     Serial.println();
     Serial.print("Flight Computer State: ");Serial.println(vehicleState);
-  };
+  #endif
 
   // WIP
   // delay(200);
@@ -20,16 +32,16 @@ void preCheck() {
   pinMode(LEDPIN, OUTPUT);
 
   // Play bootup sequence sound
-  if (!mute) {
+  #if (mute == 0)
     for (unsigned int i = 0; i < numTones; i++) {
       tone(BUZZER_PIN, tones[i]);
       delay(50);
     }
     noTone(BUZZER_PIN);
-  };
+  #endif
   delay(2000);
 
-  if (debug_state == "ON") {
+  #if (debug_state == 1)
     Serial.print("Let's see if the BME280 Barometer/Altimeter is connected. Standby");
     delay(500);
     Serial.print(".");
@@ -37,15 +49,15 @@ void preCheck() {
     Serial.print(".");
     delay(500);
     Serial.println(".");
-  } else {
+  #else
     delay(1500); // Maintain minimal delay to allow for sensor initialization.
-  }
+  #endif
 
   // Initialize and test BME280
   if (!bme.begin()) { // I2C address is 0x76
-    if (debug_state == "ON") {
+    #if (debug_state == 1)
       Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
-    }
+    #endif
     vehicleState = ERROR;
   } else {
     String bmeMsg = "Found the BME280 sensor! Here's some data...";
@@ -53,19 +65,19 @@ void preCheck() {
     // a Wire.beginTransmission here, but we don't need that for now
     delay(2000);
 
-    if(debug_state == "ON") {
+    #if (debug_state == 1)
       Serial.println(bmeMsg);
       Serial.print("Temperature = "); Serial.print(bme.readTemperature()); Serial.println(" *C");
       Serial.print("Pressure = "); Serial.print((bme.readPressure() / 100.0F)); Serial.println(" Pa"); // Need to update this to kPa to not break PDTP
       Serial.print("Approx Altitude = "); Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA)); Serial.println(" m");
       Serial.print("Humidity = "); Serial.print(bme.readHumidity()); Serial.println(" %");
       Serial.println();
-    }
+    #endif
 
     blep(BUZZER_PIN, 523, 50);
 
   }
-  if (debug_state == "ON") {
+  #if (debug_state == 1)
     Serial.print("Now we'll look for the MPU6050 IMU. Standby");
     delay(500);
     Serial.print(".");
@@ -73,15 +85,15 @@ void preCheck() {
     Serial.print(".");
     delay(500);
     Serial.println(".");
-  } else {
+  #else 
     delay(1500); // Maintain delay for sensor initialization.
-  }
+  #endif
 
   // Initialize and test Intertial Measurement Unit (IMU) [MPU6050]
   if (!imu.begin()) { // I2C address is 0x68; can be set to 0x69
-    if (debug_state == "ON") {
+    #if (debug_state == 1)
       Serial.println("Could not find a valid MPU6050 sensor, check wiring, address, sensor ID!");
-    }
+    #endif
     vehicleState = ERROR;
   } else {
     String imuMsg = "Found it! MPU6050 Connection Successful.";
@@ -93,7 +105,7 @@ void preCheck() {
     blep(BUZZER_PIN, 523, 50);
     delay(50);
 
-    if (debug_state == "ON") {
+    #if (debug_state == 1)
       Serial.println(imuMsg); // TODO - Same as above wrt SD card
 
       // TODO - Need to add error detection
@@ -181,115 +193,53 @@ void preCheck() {
         delay(10);
         Serial.println(); Serial.println();
       }
-    }
+    #else 
+      for (int i = 0; i < 20; i++) {
+        imu.getEvent(&a, &g, &temp);
+      } // Maintain 'imu.getEvent()' call
+    #endif
 
     blep(BUZZER_PIN, 523, 50);
   }
 
-  // if (String(DEFLECTION_TEST) == "ACTIVE") {
-  //   delay(2000);
-  //   Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
-  //   Serial.println();Serial.println();
-  //   // deflectionTest(); //? [WIP]
-  //   blep(BUZZER_PIN, 523, 50);
-  // }
+  #if (DEFLECTION_TEST == 1)
+    delay(2000);
+    Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
+    Serial.println();Serial.println();
+    // deflectionTest(); //? [WIP]
+    blep(BUZZER_PIN, 523, 50);
+  #endif
 
-  //? [4/23/2026] - Disabling all RF-related functions until basic functions have been fixed
-  //   // If TELEMETRY value is not accurately set, abort the flight program.
-  //   if ((TELEMETRY != "ACTIVE") || (TELEMETRY != "LOCAL") || (TELEMETRY != "INACTIVE")) {
-  //     vehicleState = "ERROR";
-  //   }
+  // If TELEMETRY value is not accurately set, abort the flight program.
+  if (TELEMETRY > 1 || TELEMETRY < 0) {
+    vehicleState = ERROR;
+  }
 
-  //   if (TELEMETRY == "ACTIVE") {
-  //     Serial.println();
-  //     Serial.println("LoRa Radio module found!");
+  #if (TELEMETRY == 1) 
+    Serial.println();
+    Serial.println("LoRa Radio module found!");
 
-  //     // Reset LoRa Module
-  //     digitalWrite(RFM95_RST, LOW);
-  //     delay(10);
-  //     digitalWrite(RFM95_RST, HIGH);
-  //     delay(10);
+    // Reset LoRa Module
+    digitalWrite(RFM95_RST, LOW);
+    delay(10);
+    digitalWrite(RFM95_RST, HIGH);
+    delay(10);
 
-  //     while (!rf95.init()) {
-  //       Serial.println("LoRa radio init failed");
-  //       Serial.println("Uncomment '#define SERIAL_DEBUG' in RH_RF95.cpp for detailed debug info");
-  //       while (1);
-  //     }
-  //     Serial.println("LoRa radio initialized!");
+    while (!rf95.init()) {
+      Serial.println("LoRa radio init failed");
+      Serial.println("Uncomment '#define SERIAL_DEBUG' in RH_RF95.cpp for detailed debug info");
+      while (1);
+    }
+    Serial.println("LoRa radio initialized!");
 
-  //     if (!rf95.setFrequency(RF95_FREQ)) {
-  //       Serial.println("setFrequency failed");
-  //       while (1);
-  //     }
-  //     Serial.print("Frequency set to: "); Serial.println(RF95_FREQ);
+    if (!rf95.setFrequency(RF95_FREQ)) {
+      Serial.println("setFrequency failed");
+      while (1);
+    }
+    Serial.print("Frequency set to: "); Serial.println(RF95_FREQ);
 
-  //     rf95.setTxPower(23, false);
-  //   }
-
-  // //  if (TELEMETRY == "LOCAL") {
-  // //    Serial.println();
-  // //    Serial.print("Telemtry set to 'LOCAL'. Disabling LoRa Module.");
-  // //    SPI.begin();
-  // //    pinMode(RFM95_CS, OUTPUT);
-  // //    digitalWrite(RFM95_CS, HIGH);
-  // //    delay(100);
-  // //    Serial.print(".");
-  // //    delay(500);
-  // //    Serial.print(".");
-  // //    delay(500);
-  // //    Serial.println(".");
-  // //
-  // //    /*******************************************************************************************/
-  // //    /* ! WIP - Dynamically change communication method as signal strength increases/decreases? */
-  // //    /*******************************************************************************************/
-  // //    Serial.print("LoRa Module disabled! Testing if WIFI Module is connected and operational.");
-  // //    WiFi.setPins(SPIWIFI_SS, SPIWIFI_ACK, ESP32_RESETN, ESP32_GPIO0, &SPIWIFI);
-  // //    delay(1000);
-  // //    Serial.print(".");
-  // //    delay(1000);
-  // //    Serial.println(".");
-  // //    while (WiFi.status() == WL_NO_MODULE) {
-  // //      Serial.println();
-  // //      Serial.println("Could not communicate with WiFi module, check system!");
-  // //      while (true);
-  // //      vehicleState = "ERROR";
-  // //    }
-  // //    Serial.println("WiFi Module detected!");
-  // //    Serial.println("Attempting to connect to network...");
-  // //    unsigned wStatus;
-  // //
-  // //    do {
-  // //      wStatus = WiFi.begin(WIFI_SSID, PW);
-  // //      delay(100);
-  // //    } while (wStatus != WL_CONNECTED);
-  // //    // print the SSID of the network you're attached to:
-  // //    Serial.print(F("SSID: "));
-  // //    Serial.println(WiFi.SSID());
-  // //
-  // //    // print your board's IP address:
-  // //    IPAddress ip = WiFi.localIP();
-  // //    Serial.print(F("IP Address: "));
-  // //    Serial.println(ip);
-  // //
-  // //    // print the received signal strength:
-  // //    long rssi = WiFi.RSSI();
-  // //    Serial.print(F("signal strength (RSSI):"));
-  // //    Serial.print(rssi);
-  // //    Serial.println(F(" dBm"));
-  // //    Udp.begin(localPort);
-  // //
-  // //    Udp.beginPacket(remoteIp, localPort);
-  // //    if (wStatus) {
-  // //      Udp.write("INFO - WiFi Module Detected!");
-  // //    }
-  // //    Udp.endPacket();
-  // //  }
-
-  //   if (TELEMETRY == "INACTIVE") {
-  //     Serial.println();
-  //     Serial.println("Telemetry set to INACTIVE. LoRa and WiFi modules not in use.");
-  //     Serial.println();
-  //   }
+    rf95.setTxPower(23, false);
+  #endif
   
   if (vehicleState != ERROR) {
     // String readyMsg = "Flight Computer is Armed and Ready!";
@@ -306,7 +256,7 @@ void preCheck() {
       vehicleState = STARTLAUNCHSTATE;
     }
 
-    if (debug_state == "ON") {
+    #if (debug_state == 1)
       Serial.println();
       Serial.print("Flight Computer State: ");Serial.println(vehicleState);
 
@@ -315,7 +265,7 @@ void preCheck() {
       // Serial.println();Serial.println();
 
         // sendPacket(rMessage);
-    }
+    #endif
   }
 
   blep(BUZZER_PIN, 1760, 500);

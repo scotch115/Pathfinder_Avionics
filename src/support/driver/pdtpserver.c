@@ -13,31 +13,30 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <errno.h>
-// #include "queue.h"
+#include "queue.h"
 #include <termios.h>
 
-#define DEBUG 0
+#define BUFFER_SIZE 256
+#define DEBUG 2
 #define DATA_LEN 32
-#define DATA_SIZE 20480
 #define DATA_FILE "/var/tmp/pdtpserverdata"
 
 volatile sig_atomic_t listening = true;
 volatile bool daemonMode = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-struct socketThread {
+struct serial_thread {
   int thread_id;
   pthread_t * thread;
   pthread_mutex_t * thread_lock;
-  int fd;
-  char * serial_port;
+  int serial_port_fd;
   bool thread_complete;
 };
 
-// struct connectionList {
-//   struct socketThread * thread;
-//   SLIST_ENTRY(connectionList) entries;
-// };
+struct connectionList {
+  struct serial_thread * thread;
+  SLIST_ENTRY(connectionList) entries;
+};
 
 void sysPrint(int logLevel, char * message) {
     // Level 0 => LOG_INFO
@@ -102,19 +101,11 @@ void serial_port_init(int fd) {
   tty.c_cflag |= CLOCAL;      // Ignore modem control lines
   tty.c_cflag |= CREAD;       // Enable receiver
 
-  // tty.c_cflag &= ~CRTSCTS;            // No hardware flow control
-  
   // Disable software flow control
   tty.c_iflag &= ~(IXON | IXOFF | IXANY);
 
   // Disable canonical mode (raw input) and echo
   tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-
-  // Raw output
-  // tty.c_oflag &= ~OPOST;
-
-  // Disable special handling of received bytes
-  // tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
 
   // Blocking read: wait up to 1 second, return when at least 1 byte arrives
   tty.c_cc[VMIN] = 0;   // Return immediately if no bytes
@@ -236,51 +227,52 @@ void pdtpRx(char * packet_buffer, char * write_buff) {
   }
 }
 
-// void * socket_func(void* socket_param) {
-//   struct socketThread* socket_thread = (struct socketThread *) socket_param;
+void * serial_func(void* serial_param) {
+  struct serial_thread* serial_port_thread = (struct serial_thread *) serial_param;
 
-//   int threadLock = pthread_mutex_lock(socket_thread->thread_lock);
-//   if (threadLock != 0) {
-//     sysPrint(1, "Failed to lock socket thread!");
-//   } else {
-//     if (DEBUG == 2) {
-//       printf("Successfully locked socket thread!\n");
-//     }
-//   }
+  int threadLock = pthread_mutex_lock(serial_port_thread->thread_lock);
+  if (threadLock != 0) {
+    sysPrint(1, "Failed to lock socket thread!");
+  } else {
+    if (DEBUG == 2) {
+      printf("Successfully locked socket thread!\n");
+    }
+  }
 
-//   char read_buffer[256];
-//   char write_buffer[256];
-//   int fd = serial_port_init(socket_thread->serial_port);
-//   if (fd != -1) {
-//     sysPrint(0, "Successfully set 'fd' to serial_port.");
-//   }
-//   serial_port_config(fd);
-//   ssize_t n = serial_port_read(fd, read_buffer, DATA_LEN - 1);
-//   close(fd);
-//   if (n > 0) {
-//     read_buffer[n] = '\n';
-//     pdtpRx(read_buffer, write_buffer);
-//     fd = open(DATA_FILE, O_CREAT | O_APPEND | O_WRONLY, 0644);
-//     if (fd != -1) {
-//       write(fd, write_buffer, DATA_LEN);
-//       close(fd);
-//     }
-//   } else {
-//     sysPrint(1, "No response within timeout.");
-//   }
+  char buffer[BUFFER_SIZE];
+  ssize_t num_bytes = serial_port_read(serial_port_thread->serial_port_fd, buffer, BUFFER_SIZE - 1);
+  if (num_bytes == -1) {
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      perror("read failed");
+      close(serial_port_thread->serial_port_fd);
+      return 0;
+    }
+  } else if (num_bytes > 0) {
+    buffer[num_bytes] = '\0'; // Null-terminate for printing/processing
+    char write_buffer[BUFFER_SIZE];
+    printf("Received %zd bytes: %s\n", num_bytes, buffer);
 
-//   int threadUnlock = pthread_mutex_unlock(socket_thread->thread_lock);
-//   if (threadUnlock != 0) {
-//     sysPrint(1, "Failed to unlock socket thread!");
-//   } else {
-//     if (DEBUG == 2) {
-//       printf("Successfully unlocked socket thread!\n");
-//     }
-//   }
+    pdtpRx(buffer, write_buffer);
 
-//   socket_thread->thread_complete = true;
-//   return 0;  
-// }
+    int fd = open(DATA_FILE, O_CREAT | O_APPEND | O_WRONLY, 0644);
+    if (fd != -1) {
+      write(fd, write_buffer, DATA_LEN);
+      close(fd);
+    }
+  }
+  
+  int threadUnlock = pthread_mutex_unlock(serial_port_thread->thread_lock);
+  if (threadUnlock != 0) {
+    sysPrint(1, "Failed to unlock socket thread!");
+  } else {
+    if (DEBUG == 2) {
+      printf("Successfully unlocked socket thread!\n");
+    }
+  }
+
+  serial_port_thread->thread_complete = true;
+  return 0;  
+}
 
 int main(int argc, char *argv[]) {
   openlog ("pdtp-server", LOG_DEBUG | LOG_ERR, LOG_USER);
@@ -316,6 +308,15 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  int threadNum = 0;
+  SLIST_HEAD(listhead, connectionList) head;
+  SLIST_INIT(&head);
+
+  // Signal handling
+  struct sigaction sigrecv;
+  memset(&sigrecv, 0, sizeof(sigrecv));
+  sigrecv.sa_handler = signal_handler;
+  
   int serial_fd;
   const char *port_path = "/dev/ttyACM2"; // TBD
 
@@ -364,25 +365,42 @@ int main(int argc, char *argv[]) {
     if (FD_ISSET(serial_fd, &read_fds)) {
       printf("Data available on the serial port!\n");
       // Read data / create thread
-      // FROM EXAMPLE
-      #define BUFFER_SIZE 256
-      char buffer[BUFFER_SIZE];
-      // ssize_t num_bytes = read(serial_fd, buffer, BUFFER_SIZE - 1);
-      ssize_t num_bytes = serial_port_read(serial_fd, buffer, BUFFER_SIZE - 1);
-      if (num_bytes == -1) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-          perror("read failed");
-          break;
-        }
-      } else if (num_bytes > 0) {
-        buffer[num_bytes] = '\0'; // Null-terminate for printing/processing
-        char write_buffer[256];
-        printf("Received %zd bytes: %s\n", num_bytes, buffer);
-        pdtpRx(buffer, write_buffer);
-        int fd = open(DATA_FILE, O_CREAT | O_APPEND | O_WRONLY, 0644);
-        if (fd != -1) {
-          write(fd, write_buffer, DATA_LEN);
-          close(fd);
+      pthread_t thread;
+      struct serial_thread * serialThread = malloc(sizeof(struct serial_thread));
+      if (serialThread == NULL) {
+        sysPrint(1, "Could not allocate memory for socket thread!");
+        return false;
+      }
+
+      serialThread->thread_lock = &mutex;
+      serialThread->thread_complete = false;
+      serialThread->serial_port_fd = serial_fd;
+      serialThread->thread = &thread;
+      serialThread->thread_id = threadNum;
+
+      int threadStatus = pthread_create(&thread, NULL, &serial_func, serialThread);
+      if (threadStatus != 0) {
+        sysPrint(1, "Thread(s) not created!");
+        free(serialThread);
+        return 1;
+      }
+
+      struct connectionList * connection = malloc(sizeof(struct connectionList));
+      if (connection == NULL) {
+        sysPrint(1, "Could not allocate memory for connectionList!");
+        return 1;
+      }
+
+      struct connectionList *cur;
+      connection->thread = serialThread;
+
+      SLIST_INSERT_HEAD(&head, connection, entries);
+
+      threadNum += 1;
+
+      SLIST_FOREACH(cur, &head, entries) {
+        if (cur->thread->thread_complete == 1) {
+          pthread_join(*cur->thread->thread, NULL);
         }
       }
     }
@@ -393,78 +411,3 @@ int main(int argc, char *argv[]) {
   printf("Serial port closed\n");
   return EXIT_SUCCESS;
 }
-    
-//     char serial_port[256];
-//     strcpy(serial_port, "/dev/ttyACM2");
-//     int threadNum = 0;
-//     SLIST_HEAD(listhead, connectionList) head;
-//     SLIST_INIT(&head);
-
-//     struct sigaction sigrecv;
-//     memset(&sigrecv, 0, sizeof(sigrecv));
-//     sigrecv.sa_handler = signal_handler;
-
-//     fprintf(stdout, "Attempting to start PDTP server...");
-
-//     while(1) {
-//       if (!listening) {
-//         printf("Quitting\n");
-//       }
-
-//       if (sigaction(SIGINT, &sigrecv, NULL) == -1) {
-//         break;
-//       }
-
-//       if (sigaction(SIGTERM, &sigrecv, NULL) == -1) {
-//         break;
-//       }
-
-//       pthread_t thread;
-
-//       struct socketThread * sockThread = malloc(sizeof(struct socketThread));
-
-//       if (sockThread == NULL) {
-//         sysPrint(1, "Could not allocate memory for socket thread!");
-//         return false;
-//       }
-
-//       sockThread->thread_lock = &mutex;
-//       sockThread->thread_complete = false;
-//       sockThread->serial_port = serial_port;
-//       sockThread->thread = &thread;
-//       sockThread->thread_id = threadNum;
-
-//       int threadStatus = pthread_create(&thread, NULL, &socket_func, sockThread);
-//       if (threadStatus != 0) {
-//         sysPrint(1, "Thread(s) not created!");
-//         free(sockThread);
-//         return 1;
-//       }
-
-//       if (DEBUG == 2) {
-//         fprintf(stdout, "Thread created with ID - %d\n", threadNum);
-//       }
-
-//       struct connectionList * connection = malloc(sizeof(struct connectionList));
-//       if (connection == NULL) {
-//         sysPrint(1, "Could not allocate memory for connectionList!");
-//         return 1;
-//       }
-      
-//       struct connectionList *cur;
-//       connection->thread = sockThread;
-
-//       SLIST_INSERT_HEAD(&head, connection, entries);
-
-//       threadNum += 1;
-
-//       SLIST_FOREACH(cur, &head, entries) {
-//         if (cur->thread->thread_complete == 1) {
-//           pthread_join(*cur->thread->thread, NULL);
-//         }
-//       }
-//     }
-//     return 0;  
-//   }
-//   return 0; 
-// }
