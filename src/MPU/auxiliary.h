@@ -5,13 +5,13 @@
 /*********************************************************************************************************************************************************************/
 void blep(uint8_t buzzerPin, int pitch, int length) {
   // unsigned long startTime = millis(); // TODO - Is it possible to use clock cycles for buzzer duration?
-  if (!mute) {
+  #if (mute == 0) 
     tone(buzzerPin, pitch);
     digitalWrite(LEDPIN, HIGH);
     delay(length);
     noTone(buzzerPin);
     digitalWrite(LEDPIN, LOW);
-  }
+  #endif
 }
 
 void deflectionTest() {

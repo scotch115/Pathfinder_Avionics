@@ -12,7 +12,7 @@
  * @note - ERROR/SENSOR FAILURE/NO SIGNAL
  */
 void HM(unsigned long clockReadInterval, int pitch, bool single) {
-  if (clockEnable == true) {
+  #if (clock_enable == true)
     if (hmTime - prevTime >= clockReadInterval) {
       prevTime = hmTime;
       if (clockState == CLK_HI) {
@@ -23,9 +23,9 @@ void HM(unsigned long clockReadInterval, int pitch, bool single) {
         }
       }
     }
-  } else {
+  #else
       blep(BUZZER_PIN, pitch, 50);
-  }
+  #endif
 
   // TODO - Implement some sort of check within the health monitor to detect the health states above
 

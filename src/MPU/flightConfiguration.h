@@ -1,20 +1,16 @@
-#define debugState "ON"
-#define mute true
-#define verboseLogs false
-#define clockEnable false
+// System Settings //
+#define debug_state 0
+#define mute 0
+#define clock_enable 1
+// #define verboseLogs 0
+
+// Module Configuration //
+#define TELEMETRY 0
+#define FIN_TEST 0
+#define PYRO1 0
+#define RCS 0
 
 // Current Atmospheric Pressure (UPDATE BEFORE FLIGHT)
 #define SEALEVELPRESSURE_HPA (1013.25)
-
-/** TELEMETRY OPTIONS
- * @param ACTIVE - send data over LoRaWAN
- * @param LOCAL - send data over WiFi
- * @param INACTIVE - disable remote communications entirely
- */
-#define TELEMETRY "INACTIVE"
-#define DEFLECTION_TEST "ACTIVE"
-
-#define PYRO1 false
-#define RCS false
 
 #define STARTLAUNCHSTATE STARTUP

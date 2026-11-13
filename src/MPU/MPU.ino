@@ -6,14 +6,12 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
-//#include <avr/dtostrf.h>
-//#include "MPU6050_6Axis_MotionApps612.h"
-// #include <RH_RF95.h>
+// #include <avr/dtostrf.h>
+#include "MPU6050_6Axis_MotionApps612.h"
+#include <RH_RF95.h>
 #include <PWMServo.h>
 #include <SimpleKalmanFilter.h>
-//#include <SPI.h>
-//#include <WiFiNINA.h>
-// #include <WiFiUdp.h>
+#include <SPI.h>
 
 // Import support files
 #include "flightConfiguration.h"
@@ -49,17 +47,15 @@ void setup() {
   //   digitalWrite(RFM95_RST, HIGH);
   // }
 
-  // Serial.begin(9600);
   Serial.begin(115200);
 
   // Wait for serial to be available if board is in 'DEBUG' mode
-  if (String(debugState) == "ON") {
+  #if (debug_state == 1)
     while (!Serial) {
     }
-  }
+  #endif
 
-  // Run pre-flight check
-  preCheck();
+  pbit();
 }
 
 /********************************************************************************/
@@ -83,26 +79,26 @@ void loop() {
   currentTime = millis();
   hmTime = millis();
   missionTime = millis();
-  if (clockEnable == true) {
+  #if (clock_enable == 1)
     clk(); // Maybe clock should not interfere with hardware clock but instead just be used for the HM...
-  }
+  #endif
 
   switch(vehicleState) {
     case ARMED: // 1Hz
       clockReadInterval = 500;  // When ARMED, beep/read to indicate high and low clock waves
       HM(clockReadInterval, 1000, false);
-      flightControl();
+      flight_control();
       break;
     case IDLE: // 2Hz
       clockReadInterval = 1000;
       HM(clockReadInterval, 1000, true);
-      flightControl();
+      flight_control();
       // TODO - If flight computer is in 'IDLE' mode, lower to 2Hz to further improve battery performance
       break;
     case DEEPSLEEP: // 5Hz
       clockReadInterval = 5000;
       HM(clockReadInterval, 800, false);
-      flightControl();
+      flight_control();
       // TODO - If flight computer is in 'IDLE' mode, lower to 5Hz to further improve battery performance
       break;
     case ASCENT:
@@ -110,7 +106,7 @@ void loop() {
       // Blep twice as in flight to indicate a change in state
       clockReadInterval = 1000;
       HM((clockReadInterval / 2), 1200, false);
-      flightControl();
+      flight_control();
       break;
     // case STARTUP:
     //   return;
@@ -135,7 +131,7 @@ void loop() {
     case DEBUG:
       /* Do not limit data stream for efficient debugging */
       HM(clockReadInterval, 1200, false);
-      flightControl();
+      flight_control();
       clockPeriod = 5000;  // Set clock to 5Hz for increased visibility of messages coming in
       break;
     default:
@@ -144,16 +140,17 @@ void loop() {
       Serial.println("REVERTING STATE TO ARMED"); // TODO - Maybe store "last state" and revert to last "known good"? 
       break;
   }
-  delay(50);
+  // Temporarily increasing delay to support AELD driver development
+  delay(500);
 }
 
 /**********************************************************/
 /****************** Active Control Logic ******************/
 /**********************************************************/
-void flightControl() {
+void flight_control() {
   // TODO - Calculate quaternions using raw IMU data without the use of DMP
   rcs(ypr);
-  // pdtpTx(pldPkt);
+  pdtp_tx(pldPkt);
 
   /********************************************/
   /********** CODE BELOW IS WIP ***************/

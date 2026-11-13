@@ -10,27 +10,15 @@
 /* -== TELEMETRY ==- */
 /* Pinouts */
 // LoRa Pin Assignments
-//#define RFM95_CS 8
-//#define RFM95_RST 4
-//#define RFM95_INT 3
-
-// WiFi Pin Assignments
-//#define SPIWIFI       SPI  // The SPI port
-//#define SPIWIFI_SS    13   // Chip select pin
-//#define ESP32_RESETN  12   // Reset pin
-//#define SPIWIFI_ACK   11   // a.k.a BUSY or READY pin
-//#define ESP32_GPIO0   -1
-
-// WiFi Module Definition
-// WiFiUDP Udp;
-// IPAddress remoteIp(10, 0, 0, 6);
+#define RFM95_CS 8
+#define RFM95_RST 4
+#define RFM95_INT 3
 
 // RF Pin Assignments
-//#define RF95_FREQ 915.0
+#define RF95_FREQ 915.0
 
 // LoRa Radio Module Definition
-//RH_RF95 rf95(RFM95_CS, RFM95_INT);
-//unsigned int localPort = 2390;      // local port to listen on
+RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 /* -== IO ==- */
 // Battery Voltage Pin Assignment(for collecting battery status)
@@ -56,10 +44,10 @@ PWMServo servo3;
 
 /* -== SENSORS ==- */
 // Barometric Altimeter Definition
-Adafruit_BME280 bme; // I2C
+Adafruit_BME280 bme;  // I2C
 
 // Inertial Measurement Unit (IMU) Definition
-Adafruit_MPU6050 imu; // I2C
+Adafruit_MPU6050 imu;  // I2C
 
 /*************************************************/
 /******************* VARIABLES *******************/
@@ -69,7 +57,7 @@ enum State {
   STARTUP,
   ARMED,
   IDLE,
-  DEEPSLEEP, // secret
+  DEEPSLEEP,  // secret
   ASCENT,
   DESCENT,
   TOUCHDOWN,
@@ -96,16 +84,14 @@ unsigned long hmTime = 0;
 unsigned long currentTime = 0;
 unsigned long missionTime = 0;
 
-uint16_t sequenceNumber = 0; // Static sequence number for PDTP
+uint16_t sequenceNumber = 0;  // Static sequence number for PDTP
 
 //* 1 byte = [4 bits][4 bits] => [status][pad size]
 // 0 - INFO  //* Text only [0][max of 15]
 // 1 - DATA  //* Sensor data [1][0]
 // 2 - ACK   //* Response to/from secondary CPU [2][max of 15]
 // 3 - ERROR //* Error detected, shit's fucked [3][0 (send data still but mark it as an error)]
-byte statusByte;
-
-// bool descent = false; // Literally never used that
+uint16_t statusByte;
 
 struct payloadPacket {
   int16_t tmp;
@@ -137,7 +123,7 @@ int altitude, lastAlt, apogee = 0;
 
 // Buzzer Sounds
 unsigned int numTones = 6;
-unsigned int tones[] = {523, 587, 659, 739, 830, 880};
+unsigned int tones[] = { 523, 587, 659, 739, 830, 880 };
 /************* upper    C    D    E    F#   G#   A   */
 
 /************************************
@@ -165,8 +151,8 @@ unsigned int tones[] = {523, 587, 659, 739, 830, 880};
 //VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
 //VectorFloat gravity;    // [x, y, z]            gravity vector
 sensors_event_t a, g, temp;
-float euler[3];         // [psi, theta, phi]    Euler angle container
-float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+float euler[3];  // [psi, theta, phi]    Euler angle container
+float ypr[3];    // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 // Define base position values as zero, to convey the "starting" position
 float xPos = 0;
@@ -188,7 +174,7 @@ float zPos = 0;
 // SimpleKalmanFilter(e_mea, e_est, q)
 // e_mea: Measurement Uncertainty
 // e_est: Estimation Uncertainty
-// q: Process Noise 
+// q: Process Noise
 SimpleKalmanFilter xKalmanFilter(1, 1, 0.01);
 SimpleKalmanFilter yKalmanFilter(1, 1, 0.01);
 SimpleKalmanFilter zKalmanFilter(1, 1, 0.01);
@@ -199,8 +185,8 @@ SimpleKalmanFilter rollKalmanFilter(1, 1, 0.01);
 
 SimpleKalmanFilter tempFilter(1, 1, 0.01);
 SimpleKalmanFilter pressureFilter(1, 1, 0.01);
-SimpleKalmanFilter altitudeFilter(1,1, 0.01);
-SimpleKalmanFilter humidityFilter(1,1, 0.01);
+SimpleKalmanFilter altitudeFilter(1, 1, 0.01);
+SimpleKalmanFilter humidityFilter(1, 1, 0.01);
 
 SimpleKalmanFilter deltaYawFilter(1, 1, 0.01);
 SimpleKalmanFilter deltaPitchFilter(1, 1, 0.01);

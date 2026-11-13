@@ -16,20 +16,26 @@ void rcs(float *ypr) {
   // {/********************************/}
   // {/* !! SOMETHING IS WRONG HERE !!*/}
   // {/********************************/}
-  if (RCS) {
-    // If the vehicle is actively in flight OR if we're doing debug testing, run the RCS program.
-    if (vehicleState == ASCENT || String(debugState) == "ON") {
-      // Map the values of the MPU6050 sensor from -90 to 90 to values suitable for the servo control from 0 to 180
-      int servo0Value = map(ypr[2], -90, 90, 0, 180);
-      int servo1Value = map(ypr[2], -90, 90, 0, 180);
-      int servo2Value = map(ypr[2], -90, 90, 0, 180);
-      int servo3Value = map(ypr[2], -90, 90, 0, 180);
+  /** 
+    * +----------------------------------------------------+
+    * | Modifying to support AELD Final Project *          |
+    * | (Disabling unnecessary servo code.)                |
+    * +----------------------------------------------------+
+    */
+  // if (RCS) {
+  //   // If the vehicle is actively in flight OR if we're doing debug testing, run the RCS program.
+  //   if (vehicleState == ASCENT || String(debug_state) == "ON") {
+  //     // Map the values of the MPU6050 sensor from -90 to 90 to values suitable for the servo control from 0 to 180
+  //     int servo0Value = map(ypr[2], -90, 90, 0, 180);
+  //     int servo1Value = map(ypr[2], -90, 90, 0, 180);
+  //     int servo2Value = map(ypr[2], -90, 90, 0, 180);
+  //     int servo3Value = map(ypr[2], -90, 90, 0, 180);
 
-      // Control the servos according to the MPU6050 orientation
-      servo0.write(servo0Value);
-      servo1.write(servo1Value);
-      servo2.write(servo2Value);
-      servo3.write(servo3Value);
-    }
-  }
+  //     // Control the servos according to the MPU6050 orientation
+  //     servo0.write(servo0Value);
+  //     servo1.write(servo1Value);
+  //     servo2.write(servo2Value);
+  //     servo3.write(servo3Value);
+  //   }
+  // }
 }
