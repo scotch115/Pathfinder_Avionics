@@ -1,4 +1,4 @@
-#define debugState "OFF"
+#define debug_state "OFF"
 #define mute false
 #define verboseLogs false
 #define clockEnable false

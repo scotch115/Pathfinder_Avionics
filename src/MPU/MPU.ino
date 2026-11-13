@@ -53,7 +53,7 @@ void setup() {
   Serial.begin(115200);
 
   // Wait for serial to be available if board is in 'DEBUG' mode
-  if (String(debugState) == "ON") {
+  if (String(debug_state) == "ON") {
     while (!Serial) {
     }
   }

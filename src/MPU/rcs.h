@@ -24,7 +24,7 @@ void rcs(float *ypr) {
     */
   // if (RCS) {
   //   // If the vehicle is actively in flight OR if we're doing debug testing, run the RCS program.
-  //   if (vehicleState == ASCENT || String(debugState) == "ON") {
+  //   if (vehicleState == ASCENT || String(debug_state) == "ON") {
   //     // Map the values of the MPU6050 sensor from -90 to 90 to values suitable for the servo control from 0 to 180
   //     int servo0Value = map(ypr[2], -90, 90, 0, 180);
   //     int servo1Value = map(ypr[2], -90, 90, 0, 180);

@@ -79,8 +79,6 @@ void serial_port_config(int fd) {
     close(fd);
     exit(EXIT_FAILURE);
   }
-  // fcntl(fd, F_SETFL, 0);
-  // return fd;
 }
 
 void serial_port_init(int fd) {
@@ -93,9 +91,8 @@ void serial_port_init(int fd) {
   }
 
   // Set serial Baud rate
-  // speed_t baud_rate = B9600;
-  cfsetispeed(&tty, B9600);
-  cfsetospeed(&tty, B9600);
+  cfsetispeed(&tty, B115200);
+  cfsetospeed(&tty, B115200);
 
   // 8N1: 8 data bits, no parity, 1 stop bit
   tty.c_cflag &= ~PARENB;     // No parity bit
@@ -194,60 +191,6 @@ bool decodeCRC8(uint16_t *data, uint8_t rx_crc) {
   }
 }  
 
-int format_payload_string(union PDTP_Packet * packet, char * out, size_t out_size) {
-  size_t off = 0;
-  for (size_t i = 0; i < 13; i++) {
-    int n = 0;
-    // I recognize that this is messy and inefficient... but it works and that's what really matters.
-    switch (i) {
-      case 0:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.tmp);
-        break;
-      case 1:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.kpa);
-        break;
-      case 2:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.alt);
-        break;
-      case 3:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.hum);
-        break;
-      case 4:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.yaw);
-        break;
-      case 5:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.pch);
-        break;
-      case 6:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.rol);
-        break;
-      case 7:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.acx);
-        break;
-      case 8:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.acy);
-        break;
-      case 9:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.acz);
-        break;
-      case 10:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.yrc);
-        break;
-      case 11:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.prc);
-        break;
-      case 12:
-        n = snprintf(out + off, out_size - off, "%s%d", (i > 0) ? "," : "", packet->payload.rrc);
-        break;    
-    }
-    if (n < 0 || (size_t)n >= out_size - off) {
-      return -1; // encoding error or buffer is too small
-    }
-    off += (size_t)n;
-  }
-  return (int)off;
-}
-
 void pdtpRx(char * packet_buffer, char * write_buff) {
   uint8_t rxPkt[32];
   union PDTP_Packet packet;
@@ -262,34 +205,35 @@ void pdtpRx(char * packet_buffer, char * write_buff) {
   uint8_t crc = rxPkt[31];
 
   // Extract PDTP Payload bytes into payloadPacket struct
-  packet.payload.tmp = ((int16_t)rxPkt[3]  << 8) | rxPkt[4];
-  packet.payload.kpa = ((int16_t)rxPkt[5]  << 8) | rxPkt[6];
-  packet.payload.alt = ((int16_t)rxPkt[7]  << 8) | rxPkt[8];
-  packet.payload.hum = ((int16_t)rxPkt[9]  << 8) | rxPkt[10];
-  packet.payload.yaw = ((int16_t)rxPkt[11] << 8) | rxPkt[12];
-  packet.payload.pch = ((int16_t)rxPkt[13] << 8) | rxPkt[14];
-  packet.payload.rol = ((int16_t)rxPkt[15] << 8) | rxPkt[16];
-  packet.payload.acx = ((int16_t)rxPkt[17] << 8) | rxPkt[18];
-  packet.payload.acy = ((int16_t)rxPkt[19] << 8) | rxPkt[20];
-  packet.payload.acz = ((int16_t)rxPkt[21] << 8) | rxPkt[22];
-  packet.payload.yrc = ((int16_t)rxPkt[23] << 8) | rxPkt[24];
-  packet.payload.prc = ((int16_t)rxPkt[25] << 8) | rxPkt[26];
-  packet.payload.rrc = ((int16_t)rxPkt[27] << 8) | rxPkt[28];
+  int16_t tmp = ((int16_t)rxPkt[3]  << 8) | rxPkt[4];
+  int16_t kpa = ((int16_t)rxPkt[5]  << 8) | rxPkt[6];
+  int16_t alt = ((int16_t)rxPkt[7]  << 8) | rxPkt[8];
+  int16_t hum = ((int16_t)rxPkt[9]  << 8) | rxPkt[10];
+  int16_t yaw = ((int16_t)rxPkt[11] << 8) | rxPkt[12];
+  int16_t pch = ((int16_t)rxPkt[13] << 8) | rxPkt[14];
+  int16_t rol = ((int16_t)rxPkt[15] << 8) | rxPkt[16];
+  int16_t acx = ((int16_t)rxPkt[17] << 8) | rxPkt[18];
+  int16_t acy = ((int16_t)rxPkt[19] << 8) | rxPkt[20];
+  int16_t acz = ((int16_t)rxPkt[21] << 8) | rxPkt[22];
+  int16_t yrc = ((int16_t)rxPkt[23] << 8) | rxPkt[24];
+  int16_t prc = ((int16_t)rxPkt[25] << 8) | rxPkt[26];
+  int16_t rrc = ((int16_t)rxPkt[27] << 8) | rxPkt[28];
+  int16_t sn  = ((int16_t)rxPkt[29] << 8) | rxPkt[30];
 
-  // int16_t sequence_number = ((int16_t)rxPkt[29] << 8) | rxPkt[30];
-
-  decodeCRC8(packet.bytes, crc);
-
-  // printf("[ID - %d] | Source: %s, Destination: %s, Status: %s\n", sequence_number, (char*)&srcAddr, (char*)&destAddr, (char*)&statusByte);
+  if(decodeCRC8(packet.bytes, crc)) {
+    printf("- CRC MATCH -\n");
+  } else {
+    printf("-== CRC MISMATCH ==-\n");
+  }
 
   char payload_string[256];
+  int str_n = sprintf(payload_string, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+        tmp, kpa, alt, hum, yaw, pch, rol, acx, acy, acz, yrc, prc, rrc, sn);
   FILE * fptr = fopen(DATA_FILE, "a+");
-  if (format_payload_string(&packet, payload_string, sizeof(payload_string)) >= 0) {
-    strcat(payload_string, "\n");
+  if (str_n > 0) {
     fputs(payload_string, fptr);
+    printf("%s\n", payload_string);
   }
-  
-  printf("%s\n", payload_string);
 }
 
 // void * socket_func(void* socket_param) {
@@ -372,7 +316,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // TESTING SELECT() //
   int serial_fd;
   const char *port_path = "/dev/ttyACM2"; // TBD
 
@@ -391,6 +334,14 @@ int main(int argc, char *argv[]) {
   int ret;
 
   while(1) {
+    // Check to see if we can still open/access the serial port
+    int check_port;
+    if ((check_port = open(port_path, O_RDWR | O_NOCTTY | O_NONBLOCK) == -1)) {
+      close(check_port);
+      close(serial_fd);
+      printf("SERIAL PORT UNAVAILABLE!\nQuitting.");
+      exit(EXIT_FAILURE);
+    }
     // Clear and initialize read set
     FD_ZERO(&read_fds);
     FD_SET(serial_fd, &read_fds);

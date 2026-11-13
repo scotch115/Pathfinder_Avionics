@@ -88,6 +88,22 @@ void pdtpTx(PDTP_Packet &packet) {
   // Wire.write(pdtpPacket, 32);
   // Wire.endTransmission();
 
+  // Serial.println("PDTP Payload contents:");
+  // Serial.println("----------------------");
+  // Serial.print(packet.payload.tmp); Serial.print(",");
+  // Serial.print(packet.payload.kpa); Serial.print(",");
+  // Serial.print(packet.payload.alt); Serial.print(",");
+  // Serial.print(packet.payload.hum); Serial.print(",");
+  // Serial.print(packet.payload.yaw); Serial.print(",");
+  // Serial.print(packet.payload.pch); Serial.print(",");
+  // Serial.print(packet.payload.rol); Serial.print(",");
+  // Serial.print(packet.payload.acx); Serial.print(",");
+  // Serial.print(packet.payload.acy); Serial.print(",");
+  // Serial.print(packet.payload.acz); Serial.print(",");
+  // Serial.print(packet.payload.yrc); Serial.print(",");
+  // Serial.print(packet.payload.prc); Serial.print(",");
+  // Serial.print(packet.payload.rrc); Serial.print(",");
+  // Serial.println(sequenceNumber);
   Serial.write(pdtpPacket, 32);
 
   sequenceNumber = sequenceNumber + 1;

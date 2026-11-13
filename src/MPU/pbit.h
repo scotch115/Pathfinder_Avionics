@@ -4,11 +4,12 @@
 void preCheck() {
   vehicleState = STARTUP;
 
-  Serial.println(); Serial.println();
-  Serial.println("Beginning Pre-Flight Software check.");
-  Serial.println();
-  delay(2000);
-  Serial.print("Flight Computer State: ");Serial.println(vehicleState);
+  if (debug_state == "ON") {
+    Serial.println(); Serial.println();
+    Serial.println("Beginning Pre-Flight Software check.");
+    Serial.println();
+    Serial.print("Flight Computer State: ");Serial.println(vehicleState);
+  };
 
   // WIP
   // delay(200);
@@ -28,151 +29,170 @@ void preCheck() {
   };
   delay(2000);
 
-  Serial.print("Let's see if the BME280 Barometer/Altimeter is connected. Standby");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.println(".");
+  if (debug_state == "ON") {
+    Serial.print("Let's see if the BME280 Barometer/Altimeter is connected. Standby");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.println(".");
+  } else {
+    delay(1500); // Maintain minimal delay to allow for sensor initialization.
+  }
 
   // Initialize and test BME280
   if (!bme.begin()) { // I2C address is 0x76
-    Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
-       vehicleState = ERROR;
+    if (debug_state == "ON") {
+      Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
+    }
+    vehicleState = ERROR;
   } else {
     String bmeMsg = "Found the BME280 sensor! Here's some data...";
     // TODO - IF we want to save these messages to the SD card, we can implement
     // a Wire.beginTransmission here, but we don't need that for now
-    Serial.println(bmeMsg);
     delay(2000);
+
+    if(debug_state == "ON") {
+      Serial.println(bmeMsg);
+      Serial.print("Temperature = "); Serial.print(bme.readTemperature()); Serial.println(" *C");
+      Serial.print("Pressure = "); Serial.print((bme.readPressure() / 100.0F)); Serial.println(" Pa"); // Need to update this to kPa to not break PDTP
+      Serial.print("Approx Altitude = "); Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA)); Serial.println(" m");
+      Serial.print("Humidity = "); Serial.print(bme.readHumidity()); Serial.println(" %");
+      Serial.println();
+    }
 
     blep(BUZZER_PIN, 523, 50);
 
-    Serial.print("Temperature = "); Serial.print(bme.readTemperature()); Serial.println(" *C");
-    Serial.print("Pressure = "); Serial.print((bme.readPressure() / 100.0F)); Serial.println(" Pa"); // Need to update this to kPa to not break PDTP
-    Serial.print("Approx Altitude = "); Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA)); Serial.println(" m");
-    Serial.print("Humidity = "); Serial.print(bme.readHumidity()); Serial.println(" %");
-    Serial.println();
-    // }
   }
-
-  Serial.print("Now we'll look for the MPU6050 IMU. Standby");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.print(".");
-  delay(500);
-  Serial.println(".");
+  if (debug_state == "ON") {
+    Serial.print("Now we'll look for the MPU6050 IMU. Standby");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    Serial.println(".");
+  } else {
+    delay(1500); // Maintain delay for sensor initialization.
+  }
 
   // Initialize and test Intertial Measurement Unit (IMU) [MPU6050]
   if (!imu.begin()) { // I2C address is 0x68; can be set to 0x69
-    Serial.println("Could not find a valid MPU6050 sensor, check wiring, address, sensor ID!");
+    if (debug_state == "ON") {
+      Serial.println("Could not find a valid MPU6050 sensor, check wiring, address, sensor ID!");
+    }
     vehicleState = ERROR;
   } else {
     String imuMsg = "Found it! MPU6050 Connection Successful.";
-    Serial.println(imuMsg); // TODO - Same as above wrt SD card
-
-
-    blep(BUZZER_PIN, 523, 50);
-    // TODO - Need to add error detection
-    // TODO II - Check calibration/settings below
+    
     imu.setAccelerometerRange(MPU6050_RANGE_8_G);
-    Serial.print("Accelerometer range set to: ");
-    switch (imu.getAccelerometerRange()) {
-      case MPU6050_RANGE_2_G:
-        Serial.println("+-2G");
-        break;
-      case MPU6050_RANGE_4_G:
-        Serial.println("+-4G");
-        break;
-      case MPU6050_RANGE_8_G:
-        Serial.println("+-8G");
-        break;
-      case MPU6050_RANGE_16_G:
-        Serial.println("+-16G");
-        break;
-    }
     imu.setGyroRange(MPU6050_RANGE_500_DEG);
-    Serial.print("Gyro range set to: ");
-    switch (imu.getGyroRange()) {
-      case MPU6050_RANGE_250_DEG:
-        Serial.println("+- 250 deg/s");
-        break;
-      case MPU6050_RANGE_500_DEG:
-        Serial.println("+- 500 deg/s");
-        break;
-      case MPU6050_RANGE_1000_DEG:
-        Serial.println("+- 1000 deg/s");
-        break;
-      case MPU6050_RANGE_2000_DEG:
-        Serial.println("+- 2000 deg/s");
-        break;
-    }
     imu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-    Serial.print("Filter bandwidth set to: ");
-    switch (imu.getFilterBandwidth()) {
-      case MPU6050_BAND_260_HZ:
-        Serial.println("260 Hz");
-        break;
-      case MPU6050_BAND_184_HZ:
-        Serial.println("184 Hz");
-        break;
-      case MPU6050_BAND_94_HZ:
-        Serial.println("94 Hz");
-        break;
-      case MPU6050_BAND_44_HZ:
-        Serial.println("44 Hz");
-        break;
-      case MPU6050_BAND_21_HZ:
-        Serial.println("21 Hz");
-        break;
-      case MPU6050_BAND_10_HZ:
-        Serial.println("10 Hz");
-        break;
-      case MPU6050_BAND_5_HZ:
-        Serial.println("5 Hz");
-        break;
-    }
+    
+    blep(BUZZER_PIN, 523, 50);
+    delay(50);
 
-    Serial.println(); Serial.println();
-    Serial.println("Here's a little bit of data!");
-    for (int i = 0; i < 20; i++) {
-      imu.getEvent(&a, &g, &temp);
+    if (debug_state == "ON") {
+      Serial.println(imuMsg); // TODO - Same as above wrt SD card
 
-      /* Print out the values */
-      Serial.print("Acceleration X: ");
-      Serial.print(a.acceleration.x);
-      Serial.print(", Y: ");
-      Serial.print(a.acceleration.y);
-      Serial.print(", Z: ");
-      Serial.print(a.acceleration.z);
-      Serial.println(" m/s^2");
+      // TODO - Need to add error detection
+      // TODO II - Check calibration/settings below
+      Serial.print("Accelerometer range set to: ");
+      switch (imu.getAccelerometerRange()) {
+        case MPU6050_RANGE_2_G:
+          Serial.println("+-2G");
+          break;
+        case MPU6050_RANGE_4_G:
+          Serial.println("+-4G");
+          break;
+        case MPU6050_RANGE_8_G:
+          Serial.println("+-8G");
+          break;
+        case MPU6050_RANGE_16_G:
+          Serial.println("+-16G");
+          break;
+      }
+      Serial.print("Gyro range set to: ");
+      switch (imu.getGyroRange()) {
+        case MPU6050_RANGE_250_DEG:
+          Serial.println("+- 250 deg/s");
+          break;
+        case MPU6050_RANGE_500_DEG:
+          Serial.println("+- 500 deg/s");
+          break;
+        case MPU6050_RANGE_1000_DEG:
+          Serial.println("+- 1000 deg/s");
+          break;
+        case MPU6050_RANGE_2000_DEG:
+          Serial.println("+- 2000 deg/s");
+          break;
+      }
+      Serial.print("Filter bandwidth set to: ");
+      switch (imu.getFilterBandwidth()) {
+        case MPU6050_BAND_260_HZ:
+          Serial.println("260 Hz");
+          break;
+        case MPU6050_BAND_184_HZ:
+          Serial.println("184 Hz");
+          break;
+        case MPU6050_BAND_94_HZ:
+          Serial.println("94 Hz");
+          break;
+        case MPU6050_BAND_44_HZ:
+          Serial.println("44 Hz");
+          break;
+        case MPU6050_BAND_21_HZ:
+          Serial.println("21 Hz");
+          break;
+        case MPU6050_BAND_10_HZ:
+          Serial.println("10 Hz");
+          break;
+        case MPU6050_BAND_5_HZ:
+          Serial.println("5 Hz");
+          break;
+      }
 
-      Serial.print("Rotation X: ");
-      Serial.print(g.gyro.x);
-      Serial.print(", Y: ");
-      Serial.print(g.gyro.y);
-      Serial.print(", Z: ");
-      Serial.print(g.gyro.z);
-      Serial.println(" rad/s");
- 
-      Serial.print("Temperature: ");
-      Serial.print(temp.temperature);
-      Serial.println(" degC");
-      delay(10);
       Serial.println(); Serial.println();
+      Serial.println("Here's a little bit of data!");
+      for (int i = 0; i < 20; i++) {
+        imu.getEvent(&a, &g, &temp);
+
+        /* Print out the values */
+        Serial.print("Acceleration X: ");
+        Serial.print(a.acceleration.x);
+        Serial.print(", Y: ");
+        Serial.print(a.acceleration.y);
+        Serial.print(", Z: ");
+        Serial.print(a.acceleration.z);
+        Serial.println(" m/s^2");
+
+        Serial.print("Rotation X: ");
+        Serial.print(g.gyro.x);
+        Serial.print(", Y: ");
+        Serial.print(g.gyro.y);
+        Serial.print(", Z: ");
+        Serial.print(g.gyro.z);
+        Serial.println(" rad/s");
+  
+        Serial.print("Temperature: ");
+        Serial.print(temp.temperature);
+        Serial.println(" degC");
+        delay(10);
+        Serial.println(); Serial.println();
+      }
     }
+
     blep(BUZZER_PIN, 523, 50);
   }
 
-  if (String(DEFLECTION_TEST) == "ACTIVE") {
-    delay(2000);
-    Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
-    Serial.println();Serial.println();
-    // deflectionTest(); //? [WIP]
-    blep(BUZZER_PIN, 523, 50);
-  }
+  // if (String(DEFLECTION_TEST) == "ACTIVE") {
+  //   delay(2000);
+  //   Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
+  //   Serial.println();Serial.println();
+  //   // deflectionTest(); //? [WIP]
+  //   blep(BUZZER_PIN, 523, 50);
+  // }
 
   //? [4/23/2026] - Disabling all RF-related functions until basic functions have been fixed
   //   // If TELEMETRY value is not accurately set, abort the flight program.
@@ -286,14 +306,16 @@ void preCheck() {
       vehicleState = STARTLAUNCHSTATE;
     }
 
-    Serial.println();
-    Serial.print("Flight Computer State: ");Serial.println(vehicleState);
+    if (debug_state == "ON") {
+      Serial.println();
+      Serial.print("Flight Computer State: ");Serial.println(vehicleState);
 
-    // Serial.println();Serial.println();
-    // Serial.println(rMessage);
-    // Serial.println();Serial.println();
+      // Serial.println();Serial.println();
+      // Serial.println(rMessage);
+      // Serial.println();Serial.println();
 
-      // sendPacket(rMessage);
+        // sendPacket(rMessage);
+    }
   }
 
   blep(BUZZER_PIN, 1760, 500);
