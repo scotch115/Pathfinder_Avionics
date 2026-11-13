@@ -2,6 +2,7 @@
 case "$1" in
   start)
     echo "Starting pdtp server"
+    modprobe cdc-acm
     start-stop-daemon -S -n pdtpserver -a /usr/bin/pdtpserver -- -d
     ;;
   stop)

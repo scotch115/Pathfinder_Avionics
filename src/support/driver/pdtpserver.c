@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
   sigrecv.sa_handler = signal_handler;
   
   int serial_fd;
-  const char *port_path = "/dev/ttyACM2"; // TBD
+  const char *port_path = "/dev/ttyACM0";
 
   serial_fd = open(port_path, O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (serial_fd == -1) {
@@ -341,8 +341,11 @@ int main(int argc, char *argv[]) {
       close(check_port);
       close(serial_fd);
       printf("SERIAL PORT UNAVAILABLE!\nQuitting.");
-      exit(EXIT_FAILURE);
+      break;
     }
+
+    // Close serial port check fd
+    close(check_port);
     // Clear and initialize read set
     FD_ZERO(&read_fds);
     FD_SET(serial_fd, &read_fds);
