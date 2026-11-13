@@ -170,7 +170,7 @@ void preCheck() {
     delay(2000);
     Serial.println("Now let's test the fins! Connecting to servos to perform Deflection Test, standby...");
     Serial.println();Serial.println();
-    deflectionTest(); //? [WIP]
+    // deflectionTest(); //? [WIP]
     blep(BUZZER_PIN, 523, 50);
   }
 

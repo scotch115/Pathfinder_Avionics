@@ -1,5 +1,5 @@
-#define debugState "ON"
-#define mute true
+#define debugState "OFF"
+#define mute false
 #define verboseLogs false
 #define clockEnable false
 

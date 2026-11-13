@@ -10,7 +10,7 @@
  * CRC - 1 byte
  * @param packet
  */
-void pdtpTx(PDTP_Packet& packet) {
+void pdtpTx(PDTP_Packet &packet) {
   byte pdtpPacket[32]; // Initialize the data packet as an array of bytes
   
   byte sourceAddress = 115; // MPU 
@@ -88,7 +88,7 @@ void pdtpTx(PDTP_Packet& packet) {
   // Wire.write(pdtpPacket, 32);
   // Wire.endTransmission();
 
-  Serial.print(pdtpPacket, 32);
+  Serial.write(pdtpPacket, 32);
 
   sequenceNumber = sequenceNumber + 1;
   delay(10);

@@ -144,7 +144,8 @@ void loop() {
       Serial.println("REVERTING STATE TO ARMED"); // TODO - Maybe store "last state" and revert to last "known good"? 
       break;
   }
-  delay(50);
+  // Temporarily increasing delay to support AELD driver development
+  delay(1000);
 }
 
 /**********************************************************/
@@ -152,8 +153,8 @@ void loop() {
 /**********************************************************/
 void flightControl() {
   // TODO - Calculate quaternions using raw IMU data without the use of DMP
-  rcs(ypr);
-  // pdtpTx(pldPkt);
+  // rcs(ypr);
+  pdtpTx(pldPkt);
 
   /********************************************/
   /********** CODE BELOW IS WIP ***************/
